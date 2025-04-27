@@ -26,7 +26,15 @@ class EditorScene extends Phaser.Scene {
         // this.load.setBaseURL(proxy + 'https://cdn.phaserfiles.com/v385');
         // For simplicity assuming direct load works or running via server:
         // this.load.setBaseURL('https://cdn.phaserfiles.com/v385'); // Use local assets
-
+        // dynamically choose base URL
+        const host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') {
+            // local development, assume relative paths work
+            this.load.setBaseURL('');
+        } else {
+            // non‐localhost (e.g. production), point to your public CDN/origin
+            this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
+        }
         this.load.image('disk', 'assets/phaser3/disk.png');
 
         this.load.image('workbenchTitle', 'assets/phaser3/workbench-title.png');
