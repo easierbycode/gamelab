@@ -33,7 +33,7 @@ class EditorScene extends Phaser.Scene {
             this.load.setBaseURL('');
         } else {
             // non‐localhost (e.g. production), point to your public CDN/origin
-            this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
+            this.load.setBaseURL('https://easierbycode.github.io/gamelab/public');
         }
         this.load.image('disk', 'assets/phaser3/disk.png');
 
