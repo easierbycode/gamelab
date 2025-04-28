@@ -1,3 +1,4 @@
+import { LoadScene } from "https://codepen.io/CodeMonkeyGames/pen/LYKayQE.js";
 import EditorScene from './EditorScene.js';
 
 const config = {
@@ -12,10 +13,13 @@ const config = {
             debug: false // Set to true to see physics bodies
         }
     },
-    scene: EditorScene,
+    scene: [LoadScene, EditorScene],
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    input: {
+        gamepad: true // Enable gamepad input
     }
 };
 

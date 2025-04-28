@@ -7,12 +7,13 @@ import Stars from './Stars.js';
 import Invaders from './Invaders.js';
 import Clock from './Clock.js';
 import Boing from './Boing.js';
+import LevelEditorScene from './LevelEditorScene.js'; // Assuming this is a separate file
 
 
 class EditorScene extends Phaser.Scene {
 
     constructor() {
-        super({ key: 'EditorScene' });
+        super({ key: 'title-scene' });
         this.count = 0; // For window handles
         this.workbench;
         this.workbenchTitle;
@@ -172,7 +173,8 @@ class EditorScene extends Phaser.Scene {
         // Icon click handlers
         eyesIcon.on('pointerup', () => { this.createWindow(Eyes); }, this);
         jugglerIcon.on('pointerup', () => { this.createWindow(Juggler); }, this);
-        starsIcon.on('pointerup', () => { this.createWindow(Stars); }, this);
+        // starsIcon.on('pointerup', () => { this.createWindow(Stars); }, this);
+        starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); }, this);
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); }, this);
         clockIcon.on('pointerup', () => { this.createWindow(Clock); }, this);
         boingIcon.on('pointerup', () => { this.createWindow(Boing); }, this);
