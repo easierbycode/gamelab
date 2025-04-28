@@ -10,12 +10,12 @@ import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/1
 // Import gamepad manager (adjust path from root)
 import { createGamepadManager } from "./gamepadManager.js";
 
-// Import layout generator functions (adjust path from root)
+// Import layout generator functions (from root directory)
 import {
     analyzeEnemyList,
     generateAestheticLayout,
     shuffleArray,
-} from "./specs/layoutGenerator.js";
+} from "./layoutGenerator.js";
 
 // Import firebase config (path is correct from root)
 import { firebaseConfig } from "./firebase-config.js";
