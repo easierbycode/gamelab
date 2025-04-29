@@ -245,9 +245,6 @@ export default class LevelEditorScene extends Phaser.Scene {
                return;
           }
 
-         // Add the window frame background image first
-         this.add.image(0, 0, 'levels-window').setOrigin(0).setDepth(-100); // Set low depth within this scene
-
          // --- Camera and Viewport Setup ---
          // Set camera viewport to match the parent zone's position and this scene's defined size
          this.cameras.main.setViewport(this.parent.x, this.parent.y, LevelEditorScene.WIDTH, LevelEditorScene.HEIGHT);
@@ -341,6 +338,9 @@ export default class LevelEditorScene extends Phaser.Scene {
               this.add.text(LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2 + 40,
                  "Failed to load game data.", { fontSize: "16px", color: "#ffcc00", align: "center" }).setOrigin(0.5);
         }
+
+        // Add the window frame background image last
+        this.add.image(0, 0, 'levels-window').setOrigin(0).setDepth(2000);
     }
 
 
