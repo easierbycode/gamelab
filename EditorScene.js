@@ -205,26 +205,36 @@ class EditorScene extends Phaser.Scene {
 
         const handle = 'window' + this.count++;
 
-        // Create a zone for the window background and dragging
-        // This zone defines the interactive area and the bounds for the child scene's camera
-        const win = this.add.zone(x, y, SceneClass.WIDTH, SceneClass.HEIGHT).setInteractive().setOrigin(0);
+        // Create a zone for the overall window area (used for scene viewport)
+        // This zone is NOT interactive for dragging anymore.
+        const win = this.add.zone(x, y, SceneClass.WIDTH, SceneClass.HEIGHT).setOrigin(0);
 
-        // Add a close button zone in the upper left corner of the window zone
+        // Create a zone specifically for dragging (top 20 pixels)
+        const dragHandleHeight = 20;
+        const dragHandle = this.add.zone(x, y, SceneClass.WIDTH, dragHandleHeight).setInteractive().setOrigin(0);
+        dragHandle.setDepth(999); // Ensure drag handle is above other potential UI but below close button
+
+        // Add a close button zone in the upper left corner
         const closeButton = this.add.zone(x, y, 28, 20).setInteractive().setOrigin(0);
-        // Set depth high to ensure it's clickable above potential scene content near the corner
-        closeButton.setDepth(1000);
+        closeButton.setDepth(1000); // Highest depth to ensure it's clickable
 
 
         // Instantiate the scene class
-        // Pass handle and the window zone reference (parent)
+        // Pass handle and the main window zone reference (win) for viewport setting
         const demo = new SceneClass(handle, win);
 
-        this.input.setDraggable(win);
+        // Make ONLY the dragHandle zone draggable
+        this.input.setDraggable(dragHandle);
 
-        win.on('drag', function (pointer, dragX, dragY) {
-            // Update the position of the main zone
+        // Attach drag listener to the dragHandle
+        dragHandle.on('drag', function (pointer, dragX, dragY) {
+            // Update the position of the drag handle itself
             this.x = dragX;
             this.y = dragY;
+
+            // Update the position of the main window zone (win) to match
+            win.setPosition(dragX, dragY);
+
             // Update the close button position as the window is dragged
             closeButton.setPosition(dragX, dragY);
 
@@ -245,8 +255,9 @@ class EditorScene extends Phaser.Scene {
                  console.warn(`Scene ${handle} not found for removal.`);
             }
             // Destroy the interactive zones for this window
-            win.destroy();
-            closeButton.destroy();
+            win.destroy();        // Destroy main zone
+            dragHandle.destroy(); // Destroy drag handle zone
+            closeButton.destroy();  // Destroy close button zone
         });
 
         // Add the scene to Phaser's scene manager and start it
@@ -258,6 +269,7 @@ class EditorScene extends Phaser.Scene {
             console.error(`Error adding scene ${handle}:`, e);
             // Cleanup zones if scene add fails
             win.destroy();
+            dragHandle.destroy();
             closeButton.destroy();
         }
     }
