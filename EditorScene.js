@@ -141,14 +141,15 @@ class EditorScene extends Phaser.Scene {
 
         const demosWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0);
         const eyesIcon = this.add.image(32, 34, 'eyesIcon', 0).setOrigin(0).setInteractive();
-        const jugglerIcon = this.add.image(48, 110, 'jugglerIcon', 0).setOrigin(0).setInteractive();
+        // const jugglerIcon = this.add.image(48, 110, 'jugglerIcon', 0).setOrigin(0).setInteractive();
         const starsIcon = this.add.image(230, 40, 'starsIcon', 0).setOrigin(0).setInteractive(); // Launches LevelEditorScene
         const invadersIcon = this.add.image(120, 34, 'invadersIcon', 0).setOrigin(0).setInteractive();
-        const clockIcon = this.add.image(240, 120, 'clockIcon', 0).setOrigin(0).setInteractive();
-        const boingIcon = this.add.image(146, 128, 'boingIcon', 0).setOrigin(0).setInteractive();
+        // const clockIcon = this.add.image(240, 120, 'clockIcon', 0).setOrigin(0).setInteractive();
+        // const boingIcon = this.add.image(146, 128, 'boingIcon', 0).setOrigin(0).setInteractive();
         // Note: Twist icon not added as Twist.js is missing
 
-        const demosContainer = this.add.container(32, 70, [ demosWindow, eyesIcon, jugglerIcon, starsIcon, invadersIcon, clockIcon, boingIcon ]);
+        // const demosContainer = this.add.container(32, 70, [ demosWindow, eyesIcon, jugglerIcon, starsIcon, invadersIcon, clockIcon, boingIcon ]);
+        const demosContainer = this.add.container(32, 70, [ demosWindow, eyesIcon, starsIcon, invadersIcon ]);
 
         demosContainer.setVisible(false);
 
@@ -176,12 +177,12 @@ class EditorScene extends Phaser.Scene {
         });
 
         // Icon click handlers
-        eyesIcon.on('pointerup', () => { this.createWindow(Eyes); }, this);
-        jugglerIcon.on('pointerup', () => { this.createWindow(Juggler); }, this);
+        eyesIcon.on('pointerup', () => { this.createWindow(Stars); }, this);
+        // jugglerIcon.on('pointerup', () => { this.createWindow(Juggler); }, this);
         starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); }, this); // <- This launches LevelEditorScene
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); }, this);
-        clockIcon.on('pointerup', () => { this.createWindow(Clock); }, this);
-        boingIcon.on('pointerup', () => { this.createWindow(Boing); }, this);
+        // clockIcon.on('pointerup', () => { this.createWindow(Clock); }, this);
+        // boingIcon.on('pointerup', () => { this.createWindow(Boing); }, this);
         // --- End Demos Window Implementation ---
 
 
