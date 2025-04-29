@@ -1,16 +1,17 @@
 import { LoadScene } from "https://codepen.io/CodeMonkeyGames/pen/LYKayQE.js";
 import EditorScene from './EditorScene.js';
+// LevelEditorScene is no longer preloaded here, it's launched by EditorScene
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 800, // Main game canvas width
+    height: 600, // Main game canvas height
     parent: 'game-container',
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 0 }, // No gravity needed for a top-down shooter
-            debug: false // Set to true to see physics bodies
+            gravity: { y: 0 },
+            debug: false
         }
     },
     scene: [LoadScene, EditorScene],
@@ -19,7 +20,7 @@ const config = {
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
     input: {
-        gamepad: true // Enable gamepad input
+        gamepad: true // Enable gamepad input globally
     }
 };
 

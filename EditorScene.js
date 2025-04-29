@@ -44,7 +44,7 @@ class EditorScene extends Phaser.Scene {
         // this.load.image('eyesIcon', 'assets/phaser3/eyes-icon.png');
         this.load.image('eyesIcon', 'assets/phaser3/player-icon.png');
         // this.load.image('starsIcon', 'assets/phaser3/stars-icon.png');
-        this.load.image('starsIcon', 'assets/phaser3/levels-icon.png');
+        this.load.image('starsIcon', 'assets/phaser3/levels-icon.png'); // This icon will launch LevelEditorScene
         this.load.image('jugglerIcon', 'assets/phaser3/juggler-icon.png');
         this.load.image('twistIcon', 'assets/phaser3/twist-icon.png'); // Note: Twist demo file not provided
         // this.load.image('invadersIcon', 'assets/phaser3/invaders-icon.png');
@@ -58,6 +58,7 @@ class EditorScene extends Phaser.Scene {
         this.load.image('jugglerWindow', 'assets/phaser3/juggler-window.png');
         this.load.image('invadersWindow', 'assets/phaser3/invaders-window.png');
         this.load.image('clockWindow', 'assets/phaser3/clock-window.png');
+        this.load.image('levels-window', 'assets/phaser3/levels-window.png'); // Load the level editor window frame
 
         this.load.atlas('boing', 'assets/phaser3/boing.png', 'assets/phaser3/boing.json');
 
@@ -74,6 +75,10 @@ class EditorScene extends Phaser.Scene {
         this.load.spritesheet('invaders.invader3', 'assets/games/multi/invader3.png', { frameWidth: 24, frameHeight: 16 });
         this.load.image('invaders.mothership', 'assets/games/multi/mothership.png');
         this.load.image('invaders.ship', 'assets/games/multi/ship.png');
+
+        // Preload assets needed by LevelEditorScene if not already loaded
+        // Check LevelEditorScene.preload() to see if it relies on assets loaded here or loads its own
+        // LevelEditorScene loads its atlas dynamically from Firebase, so no extra asset preloading needed here.
     }
 
     create() {
@@ -137,7 +142,7 @@ class EditorScene extends Phaser.Scene {
         const demosWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0);
         const eyesIcon = this.add.image(32, 34, 'eyesIcon', 0).setOrigin(0).setInteractive();
         const jugglerIcon = this.add.image(48, 110, 'jugglerIcon', 0).setOrigin(0).setInteractive();
-        const starsIcon = this.add.image(230, 40, 'starsIcon', 0).setOrigin(0).setInteractive();
+        const starsIcon = this.add.image(230, 40, 'starsIcon', 0).setOrigin(0).setInteractive(); // Launches LevelEditorScene
         const invadersIcon = this.add.image(120, 34, 'invadersIcon', 0).setOrigin(0).setInteractive();
         const clockIcon = this.add.image(240, 120, 'clockIcon', 0).setOrigin(0).setInteractive();
         const boingIcon = this.add.image(146, 128, 'boingIcon', 0).setOrigin(0).setInteractive();
@@ -173,8 +178,7 @@ class EditorScene extends Phaser.Scene {
         // Icon click handlers
         eyesIcon.on('pointerup', () => { this.createWindow(Eyes); }, this);
         jugglerIcon.on('pointerup', () => { this.createWindow(Juggler); }, this);
-        // starsIcon.on('pointerup', () => { this.createWindow(Stars); }, this);
-        starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); }, this);
+        starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); }, this); // <- This launches LevelEditorScene
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); }, this);
         clockIcon.on('pointerup', () => { this.createWindow(Clock); }, this);
         boingIcon.on('pointerup', () => { this.createWindow(Boing); }, this);
@@ -196,56 +200,65 @@ class EditorScene extends Phaser.Scene {
             return;
         }
 
-        const x = Phaser.Math.Between(400, 600);
-        const y = Phaser.Math.Between(64, 128);
+        const x = Phaser.Math.Between(50, 150); // Adjust starting position
+        const y = Phaser.Math.Between(50, 100);
 
         const handle = 'window' + this.count++;
 
         // Create a zone for the window background and dragging
+        // This zone defines the interactive area and the bounds for the child scene's camera
         const win = this.add.zone(x, y, SceneClass.WIDTH, SceneClass.HEIGHT).setInteractive().setOrigin(0);
 
-        // Add a close button zone in the upper left corner
+        // Add a close button zone in the upper left corner of the window zone
         const closeButton = this.add.zone(x, y, 28, 20).setInteractive().setOrigin(0);
+        // Set depth high to ensure it's clickable above potential scene content near the corner
+        closeButton.setDepth(1000);
+
 
         // Instantiate the scene class
-        // Note: Phaser 4 scene management might differ. This assumes direct instantiation works.
-        // We might need to use this.scene.add() differently or manage scene instances.
-        const demo = new SceneClass(handle, win); // Pass handle and zone reference
+        // Pass handle and the window zone reference (parent)
+        const demo = new SceneClass(handle, win);
 
         this.input.setDraggable(win);
 
         win.on('drag', function (pointer, dragX, dragY) {
+            // Update the position of the main zone
             this.x = dragX;
             this.y = dragY;
             // Update the close button position as the window is dragged
             closeButton.setPosition(dragX, dragY);
 
-            // If the demo scene has a refresh method, call it
+            // If the demo scene has a refresh method, call it to update its camera
             if (demo && typeof demo.refresh === 'function') {
                 demo.refresh();
             }
         });
 
-        // Add click listener to the close button
+        // Add click listener to the close button zone
         closeButton.on('pointerup', () => {
             console.log(`Closing window: ${handle}`);
-            // Stop and remove the scene
-            this.scene.stop(handle);
-            this.scene.remove(handle);
-            // Destroy the interactive zones
+            // Stop and remove the scene instance associated with this window
+            if (this.scene.get(handle)) { // Check if scene exists
+                 this.scene.stop(handle);
+                 this.scene.remove(handle); // Fully remove scene instance
+            } else {
+                 console.warn(`Scene ${handle} not found for removal.`);
+            }
+            // Destroy the interactive zones for this window
             win.destroy();
             closeButton.destroy();
         });
 
-
-        // Add the scene to Phaser's scene manager
-        // Check Phaser 4 docs for the correct way to add/run scenes dynamically like this.
-        // This might need adjustment based on P4 architecture.
+        // Add the scene to Phaser's scene manager and start it
         try {
-            this.scene.add(handle, demo, true); // Attempt to add and start the scene
+             // Add the scene instance directly
+            this.scene.add(handle, demo, true); // Start the scene automatically
+            console.log(`Launched window scene: ${handle}`);
         } catch (e) {
             console.error(`Error adding scene ${handle}:`, e);
-            // Fallback or alternative scene management might be needed
+            // Cleanup zones if scene add fails
+            win.destroy();
+            closeButton.destroy();
         }
     }
 
