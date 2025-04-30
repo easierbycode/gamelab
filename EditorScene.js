@@ -37,7 +37,7 @@ class EditorScene extends Phaser.Scene {
         // Icons for the demo window
         this.load.image('eyesIcon', 'assets/phaser3/player-icon.png'); // Was eyes, now player editor?
         this.load.image('starsIcon', 'assets/phaser3/levels-icon.png'); // Launches LevelEditorScene
-        this.load.image('jugglerIcon', 'assets/phaser3/_juggler-icon.png'); // <<< THIS WILL LAUNCH BOSS VIEWER
+        this.load.image('jugglerIcon', 'assets/phaser3/juggler-icon.png'); // <<< THIS WILL LAUNCH BOSS VIEWER
         this.load.image('invadersIcon', 'assets/phaser3/enemies-icon.png'); // Was invaders, now enemies editor?
         this.load.image('clockIcon', 'assets/phaser3/clock-icon.png'); // Example demo
         this.load.image('boingIcon', 'assets/phaser3/boing-icon.png'); // Example demo
