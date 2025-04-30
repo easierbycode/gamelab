@@ -177,7 +177,7 @@ class EditorScene extends Phaser.Scene {
         });
 
         // --- Icon Click Handlers ---
-        eyesIcon.on('pointerup', () => { this.createWindow(Eyes); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
+        eyesIcon.on('pointerup', () => { this.createWindow(Stars); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
         jugglerIcon.on('pointerup', () => { this.createWindow(BossViewerScene); demosContainer.setVisible(false); }, this); // <<< LAUNCH BOSS VIEWER
         starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // Launch Level Editor
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); demosContainer.setVisible(false); }, this); // Example: Launch Invaders
