@@ -36,6 +36,13 @@ class Example extends Phaser.Scene {
         this.load.image('button', 'https://play.rosebud.ai/assets/button.png');
         this.load.spritesheet('trump', 'https://play.rosebud.ai/assets/trump-eyes.png?QhOE', { frameWidth: 26, frameHeight: 26 });
         this.load.spritesheet('evogi', 'https://play.rosebud.ai/assets/evogi-face.png?4Ilr', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
+        // Dynamically choose base URL
+        const host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') {
+            this.load.setBaseURL(''); // Local development
+        } else {
+            this.load.setBaseURL('https://easierbycode.github.io/gamelab/public'); // Production/GitHub Pages
+        }
         // Load the video - ensure browser policies allow autoplay if needed
         this.load.video('evogi-outro', 'assets/phaser3/evogi-face-outro.mp4', 'loadeddata', false, true); // Key, URL, loadEvent, asBlob, noAudio
     }
