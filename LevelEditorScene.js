@@ -24,13 +24,15 @@ import { firebaseConfig } from "./firebase-config.js";
 export default class LevelEditorScene extends Phaser.Scene {
     // --- Window Properties ---
     parent; // Reference to the parent zone in EditorScene
+    currentWidth = LevelEditorScene.WIDTH; // Store current dimensions
+    currentHeight = LevelEditorScene.HEIGHT;
 
     // Grid and stage properties
     gridRows = 45;
     gridCols = 8;
-    // Cell width/height might need adjustment based on window size vs content size
-    cellWidth = (LevelEditorScene.WIDTH - 0) / this.gridCols; // Example: Fit width, adjust padding if needed
-    cellHeight = 50; // Keep height for now, might make grid tall
+    // Cell width/height will be calculated dynamically
+    cellWidth = 50;
+    cellHeight = 50;
     enemyList = [];
     currentStage = 0;
     availableStages = [];
@@ -60,6 +62,7 @@ export default class LevelEditorScene extends Phaser.Scene {
     hasUnsavedChanges = false;
 
     // Phaser specific properties
+    bg = null; // Background frame image
     palettePanel;
     paletteIcons = [];
     enemyGroup;
@@ -76,6 +79,7 @@ export default class LevelEditorScene extends Phaser.Scene {
     gamepadInfoButton = null; // Added for consistency
     gamepadHelpPanel = null; // Added for consistency
     gamepadHelpOverlay = null; // Added for consistency
+    tempMessageText = null; // For save/load messages
 
 
     // Input properties
@@ -115,7 +119,7 @@ export default class LevelEditorScene extends Phaser.Scene {
         if (!this.database) {
             console.error("Firebase Database not initialized. Cannot load assets.");
              this.add.text(
-                 this.cameras.main.width / 2, this.cameras.main.height / 2,
+                 LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2, // Use initial static size for preload text
                  "Error: Cannot connect to database.", { fontSize: "20px", color: "#ff0000" }
              ).setOrigin(0.5);
             return;
@@ -140,13 +144,19 @@ export default class LevelEditorScene extends Phaser.Scene {
                 this.textures.once('onload', () => {
                     console.log("Base64 texture loaded for game_asset.");
                     try {
-                        this.textures.addAtlasJSONHash('game_asset', atlasJSON);
-                        this.atlasLoaded = true;
-                        console.log("Atlas JSON Hash added for game_asset.");
-                        if (this.scene.isActive() && !this.scene.isSleeping()) {
-                             console.log("Restarting scene after atlas load.");
-                             this.scene.restart({ parent: this.parent }); // Pass parent again on restart
-                        }
+                         // Check if texture still exists before adding hash (might have been removed on restart)
+                         if (this.textures.exists('game_asset')) {
+                              this.textures.addAtlasJSONHash('game_asset', atlasJSON);
+                              this.atlasLoaded = true;
+                              console.log("Atlas JSON Hash added for game_asset.");
+                              if (this.scene.isActive() && !this.scene.isSleeping()) {
+                                   console.log("Restarting scene after atlas load.");
+                                   this.scene.restart({ parent: this.parent }); // Pass parent again on restart
+                              }
+                         } else {
+                              console.warn("Texture 'game_asset' removed before hash could be added.");
+                              this.atlasLoaded = false;
+                         }
                     } catch (e) {
                         console.error("Error adding Atlas JSON Hash:", e);
                         this.atlasLoaded = false;
@@ -154,6 +164,7 @@ export default class LevelEditorScene extends Phaser.Scene {
                     }
                 });
 
+                 // Fallback / Redundancy - If texture exists but hash adding failed initially
                  if (this.textures.exists('game_asset') && !this.atlasLoaded) {
                      console.log("Texture exists, attempting to add atlas hash directly.");
                      try {
@@ -171,6 +182,9 @@ export default class LevelEditorScene extends Phaser.Scene {
                      }
                  }
 
+                // Timeout fallback (less reliable, might cause issues if restart happens late)
+                // Consider removing if the above logic is sufficient
+                /*
                 setTimeout(() => {
                     if (!this.atlasLoaded && this.textures.exists('game_asset')) {
                         console.log("Fallback timeout: Adding atlas hash.");
@@ -192,6 +206,7 @@ export default class LevelEditorScene extends Phaser.Scene {
                          if (this.scene.isActive()) this.loadingText?.setText("Error: Texture load timed out.").setColor('#ffcc00');
                     }
                 }, 1500); // Increased timeout
+                */
 
             } else {
                 console.error("Atlas 'evil-invaders' not found in Firebase!");
@@ -219,11 +234,11 @@ export default class LevelEditorScene extends Phaser.Scene {
      // Method called by EditorScene when the parent zone is dragged
      refresh ()
      {
+         if (!this.parent) return;
          // Update camera position to match the parent zone
          this.cameras.main.setPosition(this.parent.x, this.parent.y);
 
          // Bring this scene's display list to the top (within Phaser's scene manager)
-         // This ensures it draws over scenes launched earlier, but EditorScene manages overall window overlap via zone depth.
          if (this.sys && this.sys.bringToTop) {
               this.sys.bringToTop();
          }
@@ -241,25 +256,16 @@ export default class LevelEditorScene extends Phaser.Scene {
           if (!this.parent) {
                console.error(`${this.scene.key}: Parent zone reference is missing. Cannot create scene correctly.`);
                this.loadingText?.setText("Initialization Error!").setColor('#ff0000');
-               // Attempt to fetch parent zone from EditorScene if possible? Difficult. Best to stop.
                return;
           }
 
          // --- Camera and Viewport Setup ---
          // Set camera viewport to match the parent zone's position and this scene's defined size
-         this.cameras.main.setViewport(this.parent.x, this.parent.y, LevelEditorScene.WIDTH, LevelEditorScene.HEIGHT);
+         this.cameras.main.setViewport(this.parent.x, this.parent.y, this.currentWidth, this.currentHeight);
          // Optional: Set background color for area outside the frame image (if image has transparency)
          this.cameras.main.setBackgroundColor(0x000000); // Black background
          // Ensure this scene's camera doesn't scroll with the main EditorScene camera
          this.cameras.main.setScroll(0, 0);
-
-         // --- Dynamic Cell Width Calculation ---
-         // Adjust cell width based on the final window width (e.g., leave some padding)
-         const padding = 10; // Small padding inside the window frame
-         const usableWidth = LevelEditorScene.WIDTH - (padding * 2);
-         this.cellWidth = usableWidth / this.gridCols;
-         // Cell height could also be made dynamic if needed
-         // this.cellHeight = (LevelEditorScene.HEIGHT - 100) / this.gridRows; // Example: Reserve 100px for palette
 
          if (this.loadingText) {
              this.loadingText.destroy();
@@ -267,21 +273,21 @@ export default class LevelEditorScene extends Phaser.Scene {
          }
          if (!this.textures.exists('game_asset') || !this.atlasLoaded) {
              console.error("'game_asset' texture atlas not loaded or ready. Cannot proceed.");
-             this.add.text(LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2,
-                 "Error: Assets not loaded.\nPlease wait or refresh.", { fontSize: "16px", color: "#ff0000", align: "center", wordWrap: { width: LevelEditorScene.WIDTH - 40 } }).setOrigin(0.5);
+             this.add.text(this.currentWidth / 2, this.currentHeight / 2,
+                 "Error: Assets not loaded.\nPlease wait or refresh.", { fontSize: "16px", color: "#ff0000", align: "center", wordWrap: { width: this.currentWidth - 40 } }).setOrigin(0.5);
              return;
          }
          if (!this.database) {
              console.error("Firebase Database not initialized. Cannot proceed.");
-              this.add.text(LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2,
-                 "Error: Database connection failed.", { fontSize: "16px", color: "#ff0000", align: "center", wordWrap: { width: LevelEditorScene.WIDTH - 40 } }).setOrigin(0.5);
+              this.add.text(this.currentWidth / 2, this.currentHeight / 2,
+                 "Error: Database connection failed.", { fontSize: "16px", color: "#ff0000", align: "center", wordWrap: { width: this.currentWidth - 40 } }).setOrigin(0.5);
              return;
          }
 
         console.log("LevelEditorScene create started within window");
 
         const loadingDataText = this.add.text(
-            LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2, // Center within window
+            this.currentWidth / 2, this.currentHeight / 2, // Center within window
             "Loading level data...",
             { fontSize: "20px", color: "#fff", backgroundColor: '#000a', padding: { x: 10, y: 5 } }
         ).setOrigin(0.5).setDepth(2000); // High depth within this scene
@@ -300,6 +306,9 @@ export default class LevelEditorScene extends Phaser.Scene {
                  }
             }
 
+            // Calculate cell size *before* drawing grid or placing enemies
+            this.calculateCellSize();
+
             this.drawGrid(); // Draws based on cellWidth/Height
             this.createPalettePanel(); // Creates UI relative to window size
             this.enemyGroup = this.add.group();
@@ -311,12 +320,11 @@ export default class LevelEditorScene extends Phaser.Scene {
 
             if (this.gamepadEnabled) {
                 this.gamepadManager = createGamepadManager(this);
-                // Adjust Gamepad cursor bounds to window size
                 if (this.gamepadManager) {
-                     this.gamepadManager.cursor.x = LevelEditorScene.WIDTH / 2;
-                     this.gamepadManager.cursor.y = LevelEditorScene.HEIGHT / 2;
-                     // Need to update bounds inside gamepadManager if it uses camera directly
-                     // For now, assume it uses scene dimensions which should be correct after viewport set
+                     this.gamepadManager.cursor.x = this.currentWidth / 2;
+                     this.gamepadManager.cursor.y = this.currentHeight / 2;
+                     this.gamepadManager.sceneWidth = this.currentWidth; // Pass initial dimensions
+                     this.gamepadManager.sceneHeight = this.currentHeight;
                 }
                 this.createGamepadInstructions(); // Creates button relative to window size
             }
@@ -333,14 +341,15 @@ export default class LevelEditorScene extends Phaser.Scene {
             console.log("LevelEditorScene creation complete within window.");
 
         } catch (error) {
-            loadingDataText?.setText("Error loading data!").setColor('#ff0000'); // Check if exists
+            loadingDataText?.destroy(); // Check if exists
             console.error("Error during LevelEditorScene create:", error);
-              this.add.text(LevelEditorScene.WIDTH / 2, LevelEditorScene.HEIGHT / 2 + 40,
+              this.add.text(this.currentWidth / 2, this.currentHeight / 2 + 40,
                  "Failed to load game data.", { fontSize: "16px", color: "#ffcc00", align: "center" }).setOrigin(0.5);
         }
 
         // Add the window frame background image last
-        this.add.image(0, 0, 'levels-window').setOrigin(0).setDepth(2000);
+        this.bg = this.add.image(0, 0, 'levels-window').setOrigin(0).setDepth(2000);
+        this.bg.setDisplaySize(this.currentWidth, this.currentHeight); // Scale frame initially
     }
 
 
@@ -366,6 +375,8 @@ export default class LevelEditorScene extends Phaser.Scene {
          if (this.gamepadHelpPanel && this.gamepadHelpPanel.destroy) this.gamepadHelpPanel.destroy();
          if (this.gamepadHelpOverlay && this.gamepadHelpOverlay.destroy) this.gamepadHelpOverlay.destroy();
          if (this.palettePanel && this.palettePanel.destroy) this.palettePanel.destroy(); // Palette container
+         if (this.bg && this.bg.destroy) this.bg.destroy(); // Destroy background frame
+         if (this.tempMessageText && this.tempMessageText.destroy) this.tempMessageText.destroy(); // Destroy message
 
          // Nullify references
          this.palettePanel = null;
@@ -377,13 +388,13 @@ export default class LevelEditorScene extends Phaser.Scene {
          this.gamepadHelpOverlay = null;
          this.enemyGroup = null; // Group is likely destroyed in cleanup, but nullify ref
          this.loadingText = null;
+         this.bg = null;
+         this.tempMessageText = null;
     }
 
 
     update(time, delta) {
         // Pointer position relative to this scene's viewport/camera
-        // activePointer gives coords relative to the game canvas origin.
-        // We need to adjust for the scene's camera position (which matches the parent zone's position).
         const pointer = this.input.activePointer;
         const scenePointerX = pointer.x - this.cameras.main.x;
         const scenePointerY = pointer.y - this.cameras.main.y;
@@ -397,17 +408,19 @@ export default class LevelEditorScene extends Phaser.Scene {
 
             // Update cursor preview position if it exists
             if (this.cursorPreview && this.cursorPreview.active) {
-                this.cursorPreview.setPosition(this.mouseX, this.mouseY);
+                 if (this.cursorPreview.setPosition) {
+                     this.cursorPreview.setPosition(this.mouseX, this.mouseY);
+                 } else {
+                     this.cursorPreview.x = this.mouseX;
+                     this.cursorPreview.y = this.mouseY;
+                 }
             }
         }
 
         if (this.gamepadManager && this.gamepadEnabled) {
-            // Gamepad manager needs to know the scene's bounds (WIDTH, HEIGHT)
-            // We might need to pass these or have it read them if its update depends on them.
-            // Assuming gamepadManager.update() uses scene context correctly for bounds.
-             this.gamepadManager.sceneWidth = LevelEditorScene.WIDTH; // Pass dimensions if needed
-             this.gamepadManager.sceneHeight = LevelEditorScene.HEIGHT;
-            this.gamepadManager.update();
+             this.gamepadManager.sceneWidth = this.currentWidth; // Keep dimensions updated
+             this.gamepadManager.sceneHeight = this.currentHeight;
+             this.gamepadManager.update();
 
             if (isGamepadControlling) {
                 // Gamepad cursor position is already relative to its scene/bounds
@@ -415,7 +428,12 @@ export default class LevelEditorScene extends Phaser.Scene {
                 this.mouseY = this.gamepadManager.cursor.y;
                  // Gamepad manager should update the cursorPreview visual
                  if (this.cursorPreview && this.cursorPreview.active) {
-                      this.cursorPreview.setPosition(this.mouseX, this.mouseY);
+                      if (this.cursorPreview.setPosition) {
+                          this.cursorPreview.setPosition(this.mouseX, this.mouseY);
+                      } else {
+                          this.cursorPreview.x = this.mouseX;
+                          this.cursorPreview.y = this.mouseY;
+                      }
                  }
             }
         }
@@ -463,17 +481,17 @@ export default class LevelEditorScene extends Phaser.Scene {
                 console.warn(`Invalid enemyList structure loaded for stage ${this.currentStage}. Resetting.`);
                 this.initializeDefaultEnemyList();
             } else {
-                 this.enemyList = this.enemyList.map(row => {
-                     if (!Array.isArray(row)) row = [];
-                     while (row.length < this.gridCols) row.push("00");
-                     return row.slice(0, this.gridCols);
-                 });
-                 while (this.enemyList.length < this.gridRows) {
+                 // Validate and pad/trim rows/cols based on current grid dimensions
+                 this.enemyList = this.enemyList.slice(0, this.gridRows); // Trim rows
+                 while (this.enemyList.length < this.gridRows) { // Pad rows
                      this.enemyList.push(Array(this.gridCols).fill("00"));
                  }
-                 if (this.enemyList.length > this.gridRows) {
-                      this.enemyList = this.enemyList.slice(0, this.gridRows);
-                 }
+                 this.enemyList = this.enemyList.map(row => {
+                     if (!Array.isArray(row)) row = [];
+                     row = row.slice(0, this.gridCols); // Trim cols
+                     while (row.length < this.gridCols) row.push("00"); // Pad cols
+                     return row.map(cell => (typeof cell === 'string' && cell.length === 2) ? cell : "00"); // Validate cell format
+                 });
                 console.log(`Enemy list for stage ${this.currentStage} fetched and validated successfully.`);
             }
         } else {
@@ -490,24 +508,36 @@ export default class LevelEditorScene extends Phaser.Scene {
 
     // --- UI Creation ---
 
+     calculateCellSize() {
+         const paletteHeight = 70; // Height reserved for the top palette
+         const padding = 10; // Padding inside the window frame
+         const usableWidth = this.currentWidth - (padding * 2);
+         const usableHeight = this.currentHeight - paletteHeight - padding; // Available height for the grid itself
+
+         this.cellWidth = usableWidth / this.gridCols;
+         // Adjust cell height based on available space, but keep a minimum reasonable height
+         this.cellHeight = Math.max(20, usableHeight / this.gridRows);
+          console.log(`Calculated cell size: ${this.cellWidth.toFixed(1)}x${this.cellHeight.toFixed(1)} for ${this.currentWidth}x${this.currentHeight} window`);
+     }
+
     drawGrid() {
         if (this.gridGraphics) this.gridGraphics.destroy();
-        // Draw grid lines based on cellWidth/cellHeight and window size
-        // Note: The grid might extend beyond the HEIGHT if rows*cellHeight > HEIGHT
-        const gridTotalWidth = this.gridCols * this.cellWidth;
-        // Cap drawing height to window height to avoid drawing outside
-        const gridDrawHeight = Math.min(this.gridRows * this.cellHeight, LevelEditorScene.HEIGHT);
 
+        const paletteHeight = 70;
+        const gridTotalWidth = this.gridCols * this.cellWidth;
+        // Cap drawing height to window height minus palette
+        const gridDrawHeight = Math.min(this.gridRows * this.cellHeight, this.currentHeight - paletteHeight);
+        const gridStartY = paletteHeight; // Start grid below palette
 
         this.gridGraphics = this.add.graphics({
              x: 0, // Position grid relative to scene origin
-             y: 0,
+             y: gridStartY,
              lineStyle: { width: 1, color: 0xffffff, alpha: 0.2 } // Dimmer grid
-        });
+        }).setDepth(1); // Behind enemies
 
         for (let r = 0; r <= this.gridRows; r++) {
              const yPos = r * this.cellHeight;
-             if (yPos > LevelEditorScene.HEIGHT) break; // Stop drawing lines outside window
+             if (yPos > gridDrawHeight) break; // Stop drawing lines outside grid area
             this.gridGraphics.strokeLineShape(new Phaser.Geom.Line(0, yPos, gridTotalWidth, yPos));
         }
         for (let c = 0; c <= this.gridCols; c++) {
@@ -515,34 +545,36 @@ export default class LevelEditorScene extends Phaser.Scene {
             if(xPos > gridTotalWidth + 1) break; // Ensure we don't draw past the calculated width
             this.gridGraphics.strokeLineShape(new Phaser.Geom.Line(xPos, 0, xPos, gridDrawHeight));
         }
-         // Add bounds for the camera if needed, e.g. if grid is scrollable
-         // this.cameras.main.setBounds(0, 0, gridTotalWidth, this.gridRows * this.cellHeight);
+        // Add camera scroll? Maybe later if grid height exceeds display area significantly.
+        // this.cameras.main.setBounds(0, 0, gridTotalWidth, paletteHeight + this.gridRows * this.cellHeight);
+        // this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+        //      this.cameras.main.scrollY += deltaY * 0.5;
+        // });
 
         console.log(`Grid drawn (${this.gridCols}x${this.gridRows}). Cell: ${this.cellWidth.toFixed(1)}x${this.cellHeight}`);
     }
 
     createPalettePanel() {
+         // Destroy previous elements first
          if (this.palettePanel) this.palettePanel.destroy();
-          if (this.saveButton) this.saveButton.destroy();
-          if (this.saveButtonBg) this.saveButtonBg.destroy();
+         if (this.saveButton) this.saveButton.destroy();
+         if (this.saveButtonBg) this.saveButtonBg.destroy();
+         if (this.gamepadInfoButton) this.gamepadInfoButton.destroy(); // Destroy old gamepad button too
 
-        const panelWidth = LevelEditorScene.WIDTH; // Use window width
-        const panelHeight = 70; // Keep fixed height
-        // Position palette at the top of the window
-        this.palettePanel = this.add.container(0, 0).setDepth(500); // High depth within scene
+         this.palettePanel = this.add.container(0, 0).setDepth(500); // High depth within scene
+         this.paletteIcons = []; // Clear icon references
 
-        this.paletteIcons = [];
-
+        const panelWidth = this.currentWidth; // Use window width
+        const panelHeight = 70; // Fixed height
         const bg = this.add.graphics();
-        bg.fillStyle(0x333333, 0.8); // Slightly more transparent
-        // Draw background relative to container origin (0,0)
-        bg.fillRect(0, 0, panelWidth, panelHeight); // Use simple rect, rounding not needed if against edge
+        bg.fillStyle(0x333333, 0.8);
+        bg.fillRect(0, 0, panelWidth, panelHeight);
         this.palettePanel.add(bg);
 
-        const iconSpacing = 65; // Adjust spacing for potentially smaller width
-        let iconX = 20; // Start padding
-        const paletteY = 15; // Vertical position within panel
-        const buttonSize = 40; // Keep button size
+        const iconSpacing = 65;
+        let iconX = 20;
+        const paletteY = 15;
+        const buttonSize = 40;
 
         const tools = [
             { type: "enemy", label: "👽", color: 0x3498db, labelText: "Enemy" },
@@ -552,8 +584,7 @@ export default class LevelEditorScene extends Phaser.Scene {
         ];
 
         tools.forEach(tool => {
-            // Ensure button fits within panel width
-            if (iconX + buttonSize > panelWidth - iconSpacing) return; // Skip if no space
+            if (iconX + buttonSize > panelWidth - iconSpacing) return;
 
             const buttonBg = this.add.graphics();
             buttonBg.fillStyle(tool.color, 0.9);
@@ -564,17 +595,17 @@ export default class LevelEditorScene extends Phaser.Scene {
 
             let uiElement = this.add.text(iconX + buttonSize / 2, paletteY + buttonSize / 2, tool.label, {
                 fontFamily: "Arial", fontSize: "20px", color: "#fff"
-            }).setOrigin(0.5).setInteractive();
+            }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
             const label = this.add.text(iconX + buttonSize / 2, paletteY + buttonSize + 5, tool.labelText, {
-                fontFamily: "Arial", fontSize: "10px", color: "#ffffff", stroke: "#000000", strokeThickness: 1 // Smaller label
+                fontFamily: "Arial", fontSize: "10px", color: "#ffffff", stroke: "#000000", strokeThickness: 1
             }).setOrigin(0.5, 0);
             this.palettePanel.add(label);
 
             uiElement.setData('toolButton', buttonBg);
             uiElement.setData('toolType', tool.type);
             uiElement.setData('toolColor', tool.color);
-             uiElement.setData('buttonX', iconX); // Store position relative to panel
+             uiElement.setData('buttonX', iconX);
              uiElement.setData('buttonY', paletteY);
              uiElement.setData('buttonSize', buttonSize);
 
@@ -587,87 +618,73 @@ export default class LevelEditorScene extends Phaser.Scene {
             iconX += iconSpacing;
         });
 
-        // Divider (only if space allows)
         if (iconX < panelWidth - 20) {
             const divider = this.add.graphics();
             divider.lineStyle(2, 0xFFFFFF, 0.3);
             divider.lineBetween(iconX, paletteY, iconX, paletteY + buttonSize);
             this.palettePanel.add(divider);
-            iconX += 15; // Space after divider
+            iconX += 15;
         }
 
-        // Stage Selector (check remaining space)
+        // Stage Selector
         const stageTextWidthEstimate = 60;
-        const stageButtonsWidthEstimate = (this.availableStages.length + 1) * 35; // Num stages + Add button
+        const stageButtonsWidthEstimate = (this.availableStages.length + 1) * 35;
         if (iconX + stageTextWidthEstimate + stageButtonsWidthEstimate < panelWidth - 10) {
             const stageText = this.add.text(iconX, paletteY + 5, "STAGE:", {
-                fontFamily: "Arial", fontSize: "14px", color: "#fff", fontStyle: 'bold' // Smaller text
+                fontFamily: "Arial", fontSize: "14px", color: "#fff", fontStyle: 'bold'
             });
             this.palettePanel.add(stageText);
             iconX += stageText.width + 8;
-            this.updateStageButtonsUI(iconX, paletteY); // Pass current X position
+            this.updateStageButtonsUI(iconX, paletteY); // Create/update stage buttons
         } else {
              console.log("Not enough space for stage selector in palette.");
         }
 
-        // Save Button (Positioned bottom-left within the window)
-        const saveButtonWidth = 110; // Slightly smaller
+        // Save Button (Positioned bottom-left)
+        const saveButtonWidth = 110;
         const saveButtonHeight = 30;
-        const saveButtonX = 10; // Padding from left edge
-        const saveButtonY = LevelEditorScene.HEIGHT - saveButtonHeight - 10; // Padding from bottom edge
+        const saveButtonX = 10;
+        const saveButtonY = this.currentHeight - saveButtonHeight - 10;
 
-        this.saveButtonBg = this.add.graphics().setDepth(499); // Ensure depth is relative within scene
-        this.saveButtonBg.fillStyle(0x9b59b6, 0.9);
-        this.saveButtonBg.fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8);
-
+        this.saveButtonBg = this.add.graphics().setDepth(499);
         this.saveButton = this.add.text(
             saveButtonX + saveButtonWidth / 2,
             saveButtonY + saveButtonHeight / 2,
-            "SAVE", // Shorter text
-            {
-                fontFamily: "Arial", fontSize: "14px", fontStyle: 'bold', // Smaller text
-                color: "#ffffff", padding: { x: 10, y: 4 }
-            }
-        )
-            .setOrigin(0.5)
-            .setInteractive()
-            .setDepth(500);
+            "SAVE",
+            { fontFamily: "Arial", fontSize: "14px", fontStyle: 'bold', color: "#ffffff", padding: { x: 10, y: 4 } }
+        ).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(500);
+        this.saveButton.on("pointerdown", () => this.saveLevel());
 
-         this.saveButton.on("pointerover", () => { this.saveButtonBg?.clear().fillStyle(0x8e44ad, 1).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); });
-         this.saveButton.on("pointerout", () => { if(this.saveButtonBg) this.updateSaveButtonState(); }); // Use helper to reset based on state
-         this.saveButton.on("pointerdown", () => this.saveLevel());
+         // Gamepad Info Button (bottom-right) - Recreate it here
+         if (this.gamepadEnabled) {
+             this.createGamepadInstructions();
+         }
 
-        // Note: Adding save button to paletteIcons for isOverUI check might be problematic
-        // if paletteIcons is only meant for the top bar. Keep separate or use a different check.
-
-        console.log("Palette panel created for window.");
-         this.updateSaveButtonState();
+         this.updateSaveButtonState(); // Set initial appearance/listeners
+         console.log("Palette panel created/updated for window.");
     }
 
     updateSaveButtonState() {
-         // Check required elements exist
         if (!this.saveButton || !this.saveButton.active || !this.saveButtonBg || !this.saveButtonBg.active) return;
 
         const saveButtonWidth = 110;
         const saveButtonHeight = 30;
         const saveButtonX = 10;
-        const saveButtonY = LevelEditorScene.HEIGHT - saveButtonHeight - 10;
+        const saveButtonY = this.currentHeight - saveButtonHeight - 10; // Use current height
 
-        // Clear previous state graphics and listeners (important for hover)
         this.saveButtonBg.clear();
-        this.saveButton.off("pointerover"); // Remove old listener
-        this.saveButton.off("pointerout");  // Remove old listener
+        this.saveButton.off("pointerover");
+        this.saveButton.off("pointerout");
+        this.saveButton.setPosition(saveButtonX + saveButtonWidth / 2, saveButtonY + saveButtonHeight / 2); // Update position
 
         if (this.hasUnsavedChanges) {
-            this.saveButton.setText("SAVE*"); // Indicate unsaved
-            this.saveButtonBg.fillStyle(0xe74c3c, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); // Red tint
-             // Add new hover listeners for unsaved state
+            this.saveButton.setText("SAVE*");
+            this.saveButtonBg.fillStyle(0xe74c3c, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8);
              this.saveButton.on("pointerover", () => { this.saveButtonBg?.clear().fillStyle(0xc0392b, 1).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); });
              this.saveButton.on("pointerout", () => { this.saveButtonBg?.clear().fillStyle(0xe74c3c, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); });
         } else {
             this.saveButton.setText("SAVE");
-            this.saveButtonBg.fillStyle(0x9b59b6, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); // Purple
-             // Add new hover listeners for saved state
+            this.saveButtonBg.fillStyle(0x9b59b6, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8);
               this.saveButton.on("pointerover", () => { this.saveButtonBg?.clear().fillStyle(0x8e44ad, 1).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); });
               this.saveButton.on("pointerout", () => { this.saveButtonBg?.clear().fillStyle(0x9b59b6, 0.9).fillRoundedRect(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight, 8); });
         }
@@ -676,49 +693,51 @@ export default class LevelEditorScene extends Phaser.Scene {
 
     updateStageButtonsUI(startX, startY) {
         let currentX = startX;
-        const buttonSize = 28; // Slightly smaller buttons
+        const buttonSize = 28;
         const buttonSpacing = 4;
         const paletteY = startY;
-        const panelWidth = LevelEditorScene.WIDTH; // Use scene width for boundary check
+        const panelWidth = this.currentWidth;
 
         // Remove existing stage buttons and "+" button before recreating
-        this.paletteIcons = this.paletteIcons.filter(icon => {
-             if (!icon || !icon.getData) return true; // Keep if invalid or no data
-            const isStageButton = icon.getData('isStageButton');
-            const isAddButton = icon.getData('isAddButton');
-
-            if (isStageButton || isAddButton) {
-                 const bgKey = isStageButton ? 'stageButtonBg' : 'addButtonBg';
-                 const bg = icon.getData(bgKey);
-                 if (bg?.destroy) bg.destroy();
-                 if (icon.destroy) icon.destroy();
-                 return false; // Remove from array
-            }
-            return true; // Keep other icons
-        });
+        if (this.palettePanel) {
+             const childrenToRemove = [];
+             this.palettePanel.list.forEach(icon => {
+                  if (!icon || !icon.getData) return;
+                  const isStageButton = icon.getData('isStageButton');
+                  const isAddButton = icon.getData('isAddButton');
+                  if (isStageButton || isAddButton) {
+                       const bgKey = isStageButton ? 'stageButtonBg' : 'addButtonBg';
+                       const bg = icon.getData(bgKey);
+                       if (bg?.destroy) bg.destroy();
+                       childrenToRemove.push(icon);
+                  }
+             });
+             childrenToRemove.forEach(child => child.destroy());
+        }
+         // Filter internal tracking array too
+         this.paletteIcons = this.paletteIcons.filter(icon => !icon.getData('isStageButton') && !icon.getData('isAddButton'));
 
 
         // Add stage number buttons based on available stages
         this.availableStages.forEach(stageNum => {
-            // Check if space available
-            if (currentX + buttonSize > panelWidth - 10) return; // Stop if no more space
+            if (currentX + buttonSize > panelWidth - 10) return;
 
             const stageButtonBg = this.add.graphics();
             const isActive = stageNum === this.currentStage;
             stageButtonBg.fillStyle(isActive ? 0xf39c12 : 0x555555, isActive ? 0.9 : 0.8);
-            stageButtonBg.fillRoundedRect(currentX, paletteY + 5, buttonSize, buttonSize, 14); // More rounded
+            stageButtonBg.fillRoundedRect(currentX, paletteY + 5, buttonSize, buttonSize, 14);
             this.palettePanel.add(stageButtonBg);
 
             const stageBtn = this.add.text(currentX + buttonSize / 2, paletteY + 5 + buttonSize / 2, stageNum.toString(), {
-                fontFamily: "Arial", fontSize: "14px", fontStyle: 'bold', // Smaller font
+                fontFamily: "Arial", fontSize: "14px", fontStyle: 'bold',
                 color: isActive ? "#fff" : "#ccc"
             })
                 .setOrigin(0.5)
-                .setInteractive()
+                .setInteractive({ useHandCursor: true })
                 .setData('isStageButton', true)
                 .setData('stageNumber', stageNum)
                 .setData('stageButtonBg', stageButtonBg)
-                .setData('buttonX', currentX) // Store position for hover updates
+                .setData('buttonX', currentX)
                 .setData('buttonY', paletteY + 5)
                 .setData('buttonSize', buttonSize);
 
@@ -749,13 +768,13 @@ export default class LevelEditorScene extends Phaser.Scene {
             this.palettePanel.add(addButtonBg);
 
             const addStageBtn = this.add.text(currentX + buttonSize / 2, paletteY + 5 + buttonSize / 2, "+", {
-                fontFamily: "Arial", fontSize: "18px", fontStyle: 'bold', color: "#ffffff" // Slightly smaller '+'
+                fontFamily: "Arial", fontSize: "18px", fontStyle: 'bold', color: "#ffffff"
             })
                 .setOrigin(0.5)
-                .setInteractive()
+                .setInteractive({ useHandCursor: true })
                 .setData('isAddButton', true)
                 .setData('addButtonBg', addButtonBg)
-                .setData('buttonX', currentX) // Store position
+                .setData('buttonX', currentX)
                 .setData('buttonY', paletteY + 5)
                 .setData('buttonSize', buttonSize);
 
@@ -784,9 +803,9 @@ export default class LevelEditorScene extends Phaser.Scene {
         this.selectedEnemy = null;
         this.selectedItem = null;
 
-        // Use scene dimensions for menu positioning
-        if (toolType === "enemy") this.showEnemySelectMenu(LevelEditorScene.WIDTH, LevelEditorScene.HEIGHT);
-        else if (toolType === "powerup") this.showItemSelectMenu(LevelEditorScene.WIDTH, LevelEditorScene.HEIGHT);
+        // Use current dimensions for menu positioning
+        if (toolType === "enemy") this.showEnemySelectMenu(this.currentWidth, this.currentHeight);
+        else if (toolType === "powerup") this.showItemSelectMenu(this.currentWidth, this.currentHeight);
         else if (toolType === "delete") {
             console.log("Selected tool:", toolType);
         } else if (toolType === "randomize") this.randomizeLevel();
@@ -813,25 +832,23 @@ export default class LevelEditorScene extends Phaser.Scene {
             buttonBg.lineStyle(2, 0xFFFFFF, 0.3);
             buttonBg.strokeRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 10);
         } else {
+             // If it's the active button, re-apply highlight style
              this.highlightToolButton(this.activeToolButton);
         }
 
-        const baseScale = (uiElement instanceof Phaser.GameObjects.Image) ? 0.4 : 1.0;
-        const targetScale = baseScale * (isOver ? 1.1 : 1.0);
-
-         if (this.tweens && uiElement.scale !== undefined) {
-             this.tweens.killTweensOf(uiElement); // Prevent conflicting tweens
-             this.tweens.add({
-                 targets: uiElement,
-                 scale: targetScale,
-                 duration: 100,
-                 ease: "Linear"
-             });
-         }
+        // Tooltip/Scale effect (optional)
+        // const baseScale = (uiElement instanceof Phaser.GameObjects.Image) ? 0.4 : 1.0;
+        // const targetScale = baseScale * (isOver ? 1.1 : 1.0);
+        // if (this.tweens && uiElement.scale !== undefined) {
+        //     this.tweens.killTweensOf(uiElement);
+        //     this.tweens.add({ targets: uiElement, scale: targetScale, duration: 100, ease: "Linear" });
+        // }
     }
 
     highlightToolButton(tool) {
-        if (this.activeToolButton && this.activeToolButton !== tool && this.activeToolButton.active) { // Check if active
+        if (!tool || !tool.getData) return; // Guard
+         // Deselect previous button
+        if (this.activeToolButton && this.activeToolButton !== tool && this.activeToolButton.active && this.activeToolButton.getData) {
              const prevTool = this.activeToolButton;
              const prevBg = prevTool.getData('toolButton');
               const prevToolColor = prevTool.getData('toolColor');
@@ -848,6 +865,7 @@ export default class LevelEditorScene extends Phaser.Scene {
              }
         }
 
+         // Select new button
         this.activeToolButton = tool;
          const activeToolBg = tool.getData('toolButton');
          const toolColor = tool.getData('toolColor');
@@ -857,15 +875,15 @@ export default class LevelEditorScene extends Phaser.Scene {
 
          if (activeToolBg?.active) {
              activeToolBg.clear();
-             activeToolBg.fillStyle(toolColor, 1);
+             activeToolBg.fillStyle(toolColor, 1); // Full opacity
              activeToolBg.fillRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 10);
-             activeToolBg.lineStyle(3, 0xFFFFFF, 1);
+             activeToolBg.lineStyle(3, 0xFFFFFF, 1); // Brighter border
              activeToolBg.strokeRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 10);
          }
     }
 
 
-    showEnemySelectMenu(containerWidth, containerHeight) { // Pass window dimensions
+    showEnemySelectMenu(containerWidth, containerHeight) {
         if (this.menuOpen) return;
         this.menuOpen = true;
         if (this.placeObjectHandler) this.placeObjectHandler.off("pointerdown", this.handlePlaceObject, this);
@@ -873,17 +891,17 @@ export default class LevelEditorScene extends Phaser.Scene {
         if (this.enemySelectContainer) this.enemySelectContainer.destroy();
         if (this.enemySelectOverlay) this.enemySelectOverlay.destroy();
 
-        // Overlay covers the entire scene viewport
         this.enemySelectOverlay = this.add.rectangle(0, 0, containerWidth, containerHeight, 0x000000, 0.5)
             .setOrigin(0).setInteractive().setDepth(1000);
-        this.enemySelectOverlay.on("pointerdown", this.closeEnemySelectMenu, this);
+        this.enemySelectOverlay.on("pointerdown", () => this.closeEnemySelectMenu()); // Use arrow func to maintain scope
 
-        const menuWidth = Math.min(300, containerWidth - 40); // Adjust width based on container
+        const menuWidth = Math.min(300, containerWidth - 40);
         const numEnemies = Object.keys(this.enemyData).length;
-        const contentHeight = numEnemies * 60 + 20; // Height needed for content
-        const menuHeight = Math.min(contentHeight, containerHeight - 100); // Limit height, leave padding
-        const menuX = (containerWidth - menuWidth) / 2; // Center horizontally
-        const menuY = 80; // Position from top (below palette)
+        const paletteHeight = 70;
+        const contentHeight = numEnemies * 60 + 20;
+        const menuHeight = Math.min(contentHeight, containerHeight - paletteHeight - 20); // Below palette
+        const menuX = (containerWidth - menuWidth) / 2;
+        const menuY = paletteHeight + 10; // Position below palette
 
         this.enemySelectContainer = this.add.container(menuX, menuY).setDepth(1001);
 
@@ -899,24 +917,24 @@ export default class LevelEditorScene extends Phaser.Scene {
 
         let i = 0;
         const spacing = 60;
-        const itemX = 15; // Padding inside menu
+        const itemX = 15;
         const labelX = 75;
         for (let enemyKey in this.enemyData) {
             const enemyInfo = this.enemyData[enemyKey];
-            if (!enemyInfo.texture || !enemyInfo.texture[0] || !this.textures.get('game_asset').has(enemyInfo.texture[0])) {
-                console.warn(`Skipping enemy ${enemyKey} in menu: Texture missing.`);
+            if (!enemyInfo.texture || !enemyInfo.texture[0] || !this.textures.exists('game_asset') || !this.textures.get('game_asset').has(enemyInfo.texture[0])) {
+                console.warn(`Skipping enemy ${enemyKey} in menu: Texture missing or atlas not ready.`);
                 continue;
             }
 
             const yPos = 10 + i * spacing;
 
             const enemyImage = this.add.image(itemX, yPos, "game_asset", enemyInfo.texture[0])
-                .setOrigin(0, 0).setInteractive();
+                .setOrigin(0, 0).setInteractive({ useHandCursor: true });
             enemyImage.on("pointerdown", (p) => this.selectEnemy(p, enemyKey, enemyInfo));
 
-            const enemyLabel = this.add.text(labelX, yPos + enemyImage.displayHeight / 2, enemyInfo.name, {
-                fontFamily: "Arial", fontSize: "16px", color: "#fff", stroke: "#000", strokeThickness: 2 // Slightly smaller
-            }).setOrigin(0, 0.5).setInteractive();
+            const enemyLabel = this.add.text(labelX, yPos + 15, enemyInfo.name, { // Adjust Y for image size
+                fontFamily: "Arial", fontSize: "16px", color: "#fff", stroke: "#000", strokeThickness: 2
+            }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
             enemyLabel.on("pointerdown", (p) => this.selectEnemy(p, enemyKey, enemyInfo));
 
             contentContainer.add(enemyImage);
@@ -924,46 +942,50 @@ export default class LevelEditorScene extends Phaser.Scene {
             i++;
         }
 
+         // Scrolling setup
          if (contentHeight > menuHeight) {
               const scrollMask = this.make.graphics();
               scrollMask.fillStyle(0xffffff);
-               // Mask position is relative to the scene, same as the menu container
-              scrollMask.fillRect(menuX, menuY, menuWidth, menuHeight);
+              scrollMask.fillRect(menuX, menuY, menuWidth, menuHeight); // Mask position relative to scene
               const mask = scrollMask.createGeometryMask();
               contentContainer.setMask(mask);
 
              contentContainer.setData('isScrolling', false);
              contentContainer.setData('startY', 0);
              contentContainer.setData('startPointerY', 0);
-             contentContainer.setData('minY', menuHeight - contentHeight);
-             contentContainer.setData('maxY', 0);
+             contentContainer.setData('minY', menuHeight - contentHeight); // Min Y relative to container parent
+             contentContainer.setData('maxY', 0); // Max Y relative to container parent
 
-             contentContainer.setInteractive(new Phaser.Geom.Rectangle(0, 0, menuWidth, contentHeight), Phaser.Geom.Rectangle.Contains);
-             this.input.setDraggable(contentContainer);
+             // Use a larger invisible rectangle for drag interaction to capture the whole menu area
+             const dragArea = this.add.zone(0, 0, menuWidth, menuHeight).setOrigin(0);
+             this.enemySelectContainer.add(dragArea); // Add to menu container
+             dragArea.setInteractive();
+             this.input.setDraggable(dragArea);
 
-             contentContainer.on('dragstart', (pointer) => {
+
+             dragArea.on('dragstart', (pointer) => {
                   contentContainer.setData('isScrolling', true);
-                  contentContainer.setData('startPointerY', pointer.y); // Use global pointer Y
+                  contentContainer.setData('startPointerY', pointer.y);
                   contentContainer.setData('startY', contentContainer.y);
              });
 
-             contentContainer.on('drag', (pointer) => {
+             dragArea.on('drag', (pointer) => {
                  if (!contentContainer.getData('isScrolling')) return;
                  const startY = contentContainer.getData('startY');
                  const startPointerY = contentContainer.getData('startPointerY');
-                 const deltaY = pointer.y - startPointerY; // Calculate delta from global pointer Y
+                 const deltaY = pointer.y - startPointerY;
                  const newY = startY + deltaY;
                  contentContainer.y = Phaser.Math.Clamp(newY, contentContainer.getData('minY'), contentContainer.getData('maxY'));
              });
 
-             contentContainer.on('dragend', () => { contentContainer.setData('isScrolling', false); });
+             dragArea.on('dragend', () => { contentContainer.setData('isScrolling', false); });
 
+             // Wheel scroll
              this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
                   const menuBounds = new Phaser.Geom.Rectangle(menuX, menuY, menuWidth, menuHeight);
-                   // Check pointer relative to scene origin
                   if (contentContainer.mask && this.enemySelectContainer?.active && Phaser.Geom.Rectangle.Contains(menuBounds, pointer.x - this.cameras.main.x, pointer.y - this.cameras.main.y)) {
                        const currentY = contentContainer.y;
-                       let newY = currentY - deltaY * 0.5;
+                       let newY = currentY - deltaY * 0.5; // Adjust scroll speed
                        newY = Phaser.Math.Clamp(newY, contentContainer.getData('minY'), contentContainer.getData('maxY'));
                        contentContainer.y = newY;
                   }
@@ -973,35 +995,44 @@ export default class LevelEditorScene extends Phaser.Scene {
 
 
     closeEnemySelectMenu() {
+        if (!this.menuOpen || !this.enemySelectContainer) return; // Prevent multiple closes
+
+         if (this.enemySelectContainer?.list?.length > 1 && this.enemySelectContainer.list[1]) { // Content container is likely index 1
+             const contentContainer = this.enemySelectContainer.list[1];
+             // Clean up drag/scroll listeners if they were added
+              const dragArea = this.enemySelectContainer.list.find(c => c instanceof Phaser.GameObjects.Zone);
+              if (dragArea) {
+                   this.input.setDraggable(dragArea, false);
+                   dragArea.off('dragstart');
+                   dragArea.off('drag');
+                   dragArea.off('dragend');
+              }
+         }
+
+        this.input.off('wheel'); // Turn off wheel listener
+
         if (this.enemySelectContainer) this.enemySelectContainer.destroy();
         if (this.enemySelectOverlay) this.enemySelectOverlay.destroy();
         this.enemySelectContainer = null;
         this.enemySelectOverlay = null;
         if (this.placeObjectHandler) this.placeObjectHandler.on("pointerdown", this.handlePlaceObject, this);
         this.menuOpen = false;
-        this.input.off('wheel');
-        // Clean up potential drag listeners on the content container if it exists
-         if (this.enemySelectContainer?.list[1]) { // Assuming contentContainer is the second element
-             this.input.setDraggable(this.enemySelectContainer.list[1], false);
-             this.enemySelectContainer.list[1].off('dragstart');
-             this.enemySelectContainer.list[1].off('drag');
-             this.enemySelectContainer.list[1].off('dragend');
-         }
+
     }
 
     selectEnemy(pointer, enemyKey, enemyInfo) {
-        pointer.event.stopPropagation();
+        pointer.event.stopPropagation(); // Prevent overlay click
 
         this.selectedEnemy = enemyKey;
         this.currentTool = "enemy";
         this.selectedItem = null;
 
         if (this.cursorPreview) this.cursorPreview.destroy();
-         if (enemyInfo.texture && enemyInfo.texture[0] && this.textures.get('game_asset').has(enemyInfo.texture[0])) {
-            // Use pointer coords relative to scene for preview positioning
+         if (enemyInfo.texture && enemyInfo.texture[0] && this.textures.exists('game_asset') && this.textures.get('game_asset').has(enemyInfo.texture[0])) {
+            // Use scene pointer coords for preview positioning
             this.cursorPreview = this.add.sprite(this.mouseX, this.mouseY, "game_asset", enemyInfo.texture[0])
                 .setAlpha(0.7)
-                .setDepth(1000);
+                .setDepth(1000); // High depth
          } else {
               console.warn(`Cannot create cursor preview for ${enemyKey}: Texture missing.`);
               this.cursorPreview = null;
@@ -1012,7 +1043,7 @@ export default class LevelEditorScene extends Phaser.Scene {
         this.closeEnemySelectMenu();
     }
 
-    showItemSelectMenu(containerWidth, containerHeight) { // Pass window dimensions
+    showItemSelectMenu(containerWidth, containerHeight) {
         if (this.menuOpen) return;
         this.menuOpen = true;
         if (this.placeObjectHandler) this.placeObjectHandler.off("pointerdown", this.handlePlaceObject, this);
@@ -1022,14 +1053,15 @@ export default class LevelEditorScene extends Phaser.Scene {
 
         this.itemSelectOverlay = this.add.rectangle(0, 0, containerWidth, containerHeight, 0x000000, 0.5)
             .setOrigin(0).setInteractive().setDepth(1000);
-        this.itemSelectOverlay.on("pointerdown", this.closeItemSelectMenu, this);
+        this.itemSelectOverlay.on("pointerdown", () => this.closeItemSelectMenu()); // Use arrow func
 
         const menuWidth = Math.min(300, containerWidth - 40);
         const numItems = Object.keys(this.itemData).length;
+        const paletteHeight = 70;
         const contentHeight = numItems * 60 + 20;
-        const menuHeight = Math.min(contentHeight, containerHeight - 120); // Limit height
+        const menuHeight = Math.min(contentHeight, containerHeight - paletteHeight - 20);
         const menuX = (containerWidth - menuWidth) / 2;
-        const menuY = 90; // Position below palette
+        const menuY = paletteHeight + 10;
 
         this.itemSelectContainer = this.add.container(menuX, menuY).setDepth(1001);
 
@@ -1049,20 +1081,20 @@ export default class LevelEditorScene extends Phaser.Scene {
          const labelX = 75;
         for (let itemId in this.itemData) {
             const itemInfo = this.itemData[itemId];
-             if (!itemInfo.texture || !itemInfo.texture[0] || !this.textures.get('game_asset').has(itemInfo.texture[0])) {
-                 console.warn(`Skipping item ${itemId} in menu: Texture missing.`);
+             if (!itemInfo.texture || !itemInfo.texture[0] || !this.textures.exists('game_asset') || !this.textures.get('game_asset').has(itemInfo.texture[0])) {
+                 console.warn(`Skipping item ${itemId} in menu: Texture missing or atlas not ready.`);
                  continue;
              }
 
             const yPos = 10 + i * spacing;
 
             const itemImage = this.add.image(itemX, yPos, "game_asset", itemInfo.texture[0])
-                .setOrigin(0, 0).setInteractive();
+                .setOrigin(0, 0).setInteractive({ useHandCursor: true });
             itemImage.on("pointerdown", (p) => this.selectItem(p, itemId, itemInfo));
 
-            const itemLabel = this.add.text(labelX, yPos + itemImage.displayHeight / 2, itemInfo.name, {
+            const itemLabel = this.add.text(labelX, yPos + 15, itemInfo.name, { // Adjust Y
                 fontFamily: "Arial", fontSize: "16px", color: "#fff", stroke: "#000", strokeThickness: 2
-            }).setOrigin(0, 0.5).setInteractive();
+            }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
             itemLabel.on("pointerdown", (p) => this.selectItem(p, itemId, itemInfo));
 
             contentContainer.add(itemImage);
@@ -1070,6 +1102,7 @@ export default class LevelEditorScene extends Phaser.Scene {
             i++;
         }
 
+         // Scrolling setup
          if (contentHeight > menuHeight) {
              const scrollMask = this.make.graphics();
              scrollMask.fillStyle(0xffffff);
@@ -1083,15 +1116,17 @@ export default class LevelEditorScene extends Phaser.Scene {
              contentContainer.setData('minY', menuHeight - contentHeight);
              contentContainer.setData('maxY', 0);
 
-             contentContainer.setInteractive(new Phaser.Geom.Rectangle(0, 0, menuWidth, contentHeight), Phaser.Geom.Rectangle.Contains);
-             this.input.setDraggable(contentContainer);
+             const dragArea = this.add.zone(0, 0, menuWidth, menuHeight).setOrigin(0);
+             this.itemSelectContainer.add(dragArea); // Add to menu container
+             dragArea.setInteractive();
+             this.input.setDraggable(dragArea);
 
-             contentContainer.on('dragstart', (pointer) => {
+             dragArea.on('dragstart', (pointer) => {
                   contentContainer.setData('isScrolling', true);
                   contentContainer.setData('startPointerY', pointer.y);
                   contentContainer.setData('startY', contentContainer.y);
              });
-             contentContainer.on('drag', (pointer) => {
+             dragArea.on('drag', (pointer) => {
                  if (!contentContainer.getData('isScrolling')) return;
                   const startY = contentContainer.getData('startY');
                   const startPointerY = contentContainer.getData('startPointerY');
@@ -1099,7 +1134,7 @@ export default class LevelEditorScene extends Phaser.Scene {
                   const newY = startY + deltaY;
                   contentContainer.y = Phaser.Math.Clamp(newY, contentContainer.getData('minY'), contentContainer.getData('maxY'));
              });
-             contentContainer.on('dragend', () => { contentContainer.setData('isScrolling', false); });
+             dragArea.on('dragend', () => { contentContainer.setData('isScrolling', false); });
 
              this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
                   const menuBounds = new Phaser.Geom.Rectangle(menuX, menuY, menuWidth, menuHeight);
@@ -1115,24 +1150,32 @@ export default class LevelEditorScene extends Phaser.Scene {
 
 
     closeItemSelectMenu() {
+        if (!this.menuOpen || !this.itemSelectContainer) return;
+
+         if (this.itemSelectContainer?.list?.length > 1 && this.itemSelectContainer.list[1]) {
+             const contentContainer = this.itemSelectContainer.list[1];
+             const dragArea = this.itemSelectContainer.list.find(c => c instanceof Phaser.GameObjects.Zone);
+             if (dragArea) {
+                 this.input.setDraggable(dragArea, false);
+                 dragArea.off('dragstart');
+                 dragArea.off('drag');
+                 dragArea.off('dragend');
+             }
+         }
+
+        this.input.off('wheel');
+
         if (this.itemSelectContainer) this.itemSelectContainer.destroy();
         if (this.itemSelectOverlay) this.itemSelectOverlay.destroy();
         this.itemSelectContainer = null;
         this.itemSelectOverlay = null;
         if (this.placeObjectHandler) this.placeObjectHandler.on("pointerdown", this.handlePlaceObject, this);
         this.menuOpen = false;
-        this.input.off('wheel');
-        // Clean up potential drag listeners
-         if (this.itemSelectContainer?.list[1]) {
-             this.input.setDraggable(this.itemSelectContainer.list[1], false);
-             this.itemSelectContainer.list[1].off('dragstart');
-             this.itemSelectContainer.list[1].off('drag');
-             this.itemSelectContainer.list[1].off('dragend');
-         }
+
     }
 
     selectItem(pointer, itemId, itemInfo) {
-        pointer.event.stopPropagation();
+        pointer.event.stopPropagation(); // Prevent overlay click
 
         this.selectedItem = itemId;
         this.currentTool = "powerup";
@@ -1141,9 +1184,9 @@ export default class LevelEditorScene extends Phaser.Scene {
         if (this.cursorPreview) this.cursorPreview.destroy();
         this.cursorPreview = null;
 
-         if (itemInfo.texture && itemInfo.texture[0] && this.textures.get('game_asset').has(itemInfo.texture[0])) {
-             const bubble = this.add.circle(0, 0, 15, 0xffffff, 0.3); // Smaller bubble
-             const powerupImage = this.add.image(0, 0, "game_asset", itemInfo.texture[0]).setScale(0.6); // Smaller image
+         if (itemInfo.texture && itemInfo.texture[0] && this.textures.exists('game_asset') && this.textures.get('game_asset').has(itemInfo.texture[0])) {
+             const bubble = this.add.circle(0, 0, 15, 0xffffff, 0.3);
+             const powerupImage = this.add.image(0, 0, "game_asset", itemInfo.texture[0]).setScale(0.6);
              // Use scene relative coords
              this.cursorPreview = this.add.container(this.mouseX, this.mouseY, [bubble, powerupImage]).setDepth(1000);
          } else {
@@ -1169,10 +1212,12 @@ export default class LevelEditorScene extends Phaser.Scene {
                  return;
              }
         }
-        // Ensure enemyGroup exists after cleanup
+         // Ensure enemyGroup exists after cleanup
          if (!this.enemyGroup) {
              this.enemyGroup = this.add.group();
          }
+
+        const gridStartY = 70; // Start grid below palette
 
         for (let row = 0; row < this.gridRows; row++) {
             if (!this.enemyList[row] || !Array.isArray(this.enemyList[row])) {
@@ -1194,12 +1239,12 @@ export default class LevelEditorScene extends Phaser.Scene {
 
                     if (this.enemyData[enemyKey]) {
                         const enemyInfo = this.enemyData[enemyKey];
-                         // Position based on calculated cell size
+                         // Position based on calculated cell size and grid start Y
                         const x = col * this.cellWidth + this.cellWidth / 2;
-                        const y = row * this.cellHeight + this.cellHeight / 2;
+                        const y = gridStartY + row * this.cellHeight + this.cellHeight / 2;
 
-                        // Check if y position is outside the window view (allow buffer for palette etc)
-                        // if (y > LevelEditorScene.HEIGHT + this.cellHeight) continue; // Skip drawing far off-screen elements
+                        // Check if y position is outside the window view
+                        // if (y > this.currentHeight + this.cellHeight) continue; // Skip drawing far off-screen elements
 
 
                         if (!enemyInfo.texture || enemyInfo.texture.length === 0) {
@@ -1213,23 +1258,26 @@ export default class LevelEditorScene extends Phaser.Scene {
                         }
 
                         const enemySprite = this.add.sprite(x, y, "game_asset", enemyInfo.texture[0])
-                            .setInteractive();
+                             .setInteractive({ useHandCursor: true }) // Make sprite interactive for potential future features
+                             .setDepth(10 + row); // Depth based on row, above grid
                         enemySprite.setData("enemyKey", enemyKey);
                         enemySprite.setData("gridPos", { row, col });
-                         enemySprite.setDepth(row); // Depth based on row
+                         // Scale sprite to fit cell size? (Optional)
+                         // const scale = Math.min(this.cellWidth / enemySprite.width, this.cellHeight / enemySprite.height) * 0.8;
+                         // enemySprite.setScale(scale);
                         this.enemyGroup.add(enemySprite);
 
                         if (powerup !== "0" && this.itemData[powerup]) {
                             const itemInfo = this.itemData[powerup];
-                            if (!itemInfo.texture || itemInfo.texture.length === 0 || !this.textures.get('game_asset').has(itemInfo.texture[0])) {
+                            if (!itemInfo.texture || itemInfo.texture.length === 0 || !this.textures.exists('game_asset') || !this.textures.get('game_asset').has(itemInfo.texture[0])) {
                                 console.warn(`Texture for powerup ${powerup} missing. Skipping visual.`);
                                  this.enemyList[row][col] = letter + "0";
                                  enemySprite.setData("powerup", null);
                             } else {
-                                const bubble = this.add.circle(0, 0, 15, 0xffffff, 0.3); // Smaller
-                                const powerupImage = this.add.image(0, 0, "game_asset", itemInfo.texture[0]).setScale(0.6); // Smaller
-                                const powerupContainer = this.add.container(enemySprite.x + 15, enemySprite.y - 10, [bubble, powerupImage]); // Adjust position relative
-                                 powerupContainer.setDepth(enemySprite.depth + 1);
+                                const bubble = this.add.circle(0, 0, 15, 0xffffff, 0.3);
+                                const powerupImage = this.add.image(0, 0, "game_asset", itemInfo.texture[0]).setScale(0.6);
+                                const powerupContainer = this.add.container(enemySprite.x + 15, enemySprite.y - 10, [bubble, powerupImage]);
+                                 powerupContainer.setDepth(enemySprite.depth + 1); // Above enemy
                                 powerupContainer.setData("itemId", powerup);
                                 enemySprite.setData("powerup", powerup);
                                 enemySprite.setData("powerupContainer", powerupContainer);
@@ -1254,11 +1302,12 @@ export default class LevelEditorScene extends Phaser.Scene {
         console.log(`Placing ${enemyKey} at (${row}, ${col})`);
         if (row < 0 || row >= this.gridRows || col < 0 || col >= this.gridCols) return;
 
+        const gridStartY = 70;
         const x = col * this.cellWidth + this.cellWidth / 2;
-        const y = row * this.cellHeight + this.cellHeight / 2;
+        const y = gridStartY + row * this.cellHeight + this.cellHeight / 2;
 
         // Check if position is visible within window bounds before placing
-         if (x < 0 || x > LevelEditorScene.WIDTH || y < 0 || y > LevelEditorScene.HEIGHT) {
+         if (x < 0 || x > this.currentWidth || y < gridStartY || y > this.currentHeight) {
               console.warn(`Skipping placement at (${row}, ${col}): Outside window bounds.`);
               return;
          }
@@ -1276,8 +1325,8 @@ export default class LevelEditorScene extends Phaser.Scene {
         if (!this.textures.exists('game_asset') || !this.textures.get('game_asset').has(enemyInfo.texture[0])) return;
 
         const enemySprite = this.add.sprite(x, y, "game_asset", enemyInfo.texture[0])
-            .setInteractive();
-         enemySprite.setDepth(row);
+            .setInteractive({ useHandCursor: true })
+            .setDepth(10 + row);
         enemySprite.setData("enemyKey", enemyKey);
         enemySprite.setData("gridPos", { row, col });
         this.enemyGroup.add(enemySprite);
@@ -1295,7 +1344,7 @@ export default class LevelEditorScene extends Phaser.Scene {
         if (row < 0 || row >= this.gridRows || col < 0 || col >= this.gridCols) return;
 
         const currentCode = this.enemyList[row]?.[col];
-        if (!currentCode || currentCode === "00") return;
+        if (!currentCode || currentCode === "00") return; // No enemy here
 
         let enemySprite = this.enemyGroup.getChildren().find(sprite => {
             const pos = sprite.getData("gridPos");
@@ -1304,28 +1353,31 @@ export default class LevelEditorScene extends Phaser.Scene {
 
         if (!enemySprite) {
              console.error(`Sprite not found at (${row}, ${col}) despite data.`);
-             // this.enemyList[row][col] = "00"; // Option: Correct data
              return;
         }
 
+        // Remove existing powerup visual if present
         const existingPowerupContainer = enemySprite.getData("powerupContainer");
         if (existingPowerupContainer) existingPowerupContainer.destroy();
 
         const itemInfo = this.itemData[itemId];
-        if (!itemInfo || !itemInfo.texture || itemInfo.texture.length === 0) return;
+        if (!itemInfo || !itemInfo.texture || itemInfo.texture.length === 0) {
+             console.warn(`Item info missing for ID: ${itemId}`);
+             return;
+        }
 
         if (!this.textures.exists('game_asset') || !this.textures.get('game_asset').has(itemInfo.texture[0])) {
             console.warn(`Texture for powerup ${itemId} missing. Updating data only.`);
         } else {
             const bubble = this.add.circle(0, 0, 15, 0xffffff, 0.3);
             const powerupImage = this.add.image(0, 0, "game_asset", itemInfo.texture[0]).setScale(0.6);
-            // Adjust position relative to sprite
             const powerupContainer = this.add.container(enemySprite.x + 15, enemySprite.y - 10, [bubble, powerupImage]);
              powerupContainer.setDepth(enemySprite.depth + 1);
             powerupContainer.setData("itemId", itemId);
             enemySprite.setData("powerupContainer", powerupContainer);
         }
 
+        // Update data
         enemySprite.setData("powerup", itemId);
         const letter = currentCode.charAt(0);
         this.enemyList[row][col] = letter + itemId;
@@ -1341,12 +1393,10 @@ export default class LevelEditorScene extends Phaser.Scene {
 
         console.log(`Removing entity at (${row}, ${col})`);
         let changed = false;
-         // Ensure enemyGroup exists before iterating
          if (this.enemyGroup) {
             const children = this.enemyGroup.getChildren();
             for (let i = children.length - 1; i >= 0; i--) {
                 const sprite = children[i];
-                // Check sprite is valid before accessing data
                 if (!sprite || !sprite.getData) continue;
                 const pos = sprite.getData("gridPos");
                 if (pos && pos.row === row && pos.col === col) {
@@ -1361,17 +1411,12 @@ export default class LevelEditorScene extends Phaser.Scene {
               console.warn("removeEnemyAtCell called but enemyGroup does not exist.");
          }
 
-         if (changed) {
+         if (changed || this.enemyList[row]?.[col] !== "00") { // If sprite was removed OR data needs clearing
             this.enemyList[row][col] = "00";
             this.hasUnsavedChanges = true;
             this.updateSaveButtonState();
          } else {
-              console.warn(`Sprite not found at (${row}, ${col}) during removal attempt.`);
-               if (this.enemyList[row]?.[col] !== "00") { // Check if row exists
-                    this.enemyList[row][col] = "00";
-                    this.hasUnsavedChanges = true;
-                    this.updateSaveButtonState();
-               }
+              console.warn(`Sprite not found at (${row}, ${col}) during removal attempt, data was already '00'.`);
          }
     }
 
@@ -1395,9 +1440,10 @@ export default class LevelEditorScene extends Phaser.Scene {
 
         console.log(`Handle place object. Tool: ${this.currentTool}, Pos: (${sceneX.toFixed(0)}, ${sceneY.toFixed(0)})`);
 
-        // Calculate grid cell based on scene-relative coordinates
+        // Calculate grid cell based on scene-relative coordinates and grid start position
+        const gridStartY = 70;
         const col = Math.floor(sceneX / this.cellWidth);
-        const row = Math.floor(sceneY / this.cellHeight);
+        const row = Math.floor((sceneY - gridStartY) / this.cellHeight);
 
         if (col < 0 || col >= this.gridCols || row < 0 || row >= this.gridRows) {
             console.log("Click outside grid bounds.");
@@ -1418,50 +1464,32 @@ export default class LevelEditorScene extends Phaser.Scene {
     }
 
     isOverUI(sceneX, sceneY) { // Takes scene-relative coordinates
-         const checkBounds = (gameObject, x, y) => {
-             // Need bounds relative to the scene origin (0,0)
-             if (!gameObject || !gameObject.active || typeof gameObject.getBounds !== 'function') return false;
-             // getBounds() usually gives world coords or coords relative to parent container.
-             // For simplicity, let's check if sceneX, sceneY fall within the element's area,
-             // assuming elements are positioned relative to scene (0,0) or within containers positioned at (0,0).
-             const bounds = gameObject.getBounds(); // This might still be world bounds
-             // We need to transform sceneX, sceneY back to world coords OR transform bounds to scene coords.
-             // Easier: transform sceneX, sceneY to world coords for the check.
-             const worldX = sceneX + this.cameras.main.x;
-             const worldY = sceneY + this.cameras.main.y;
-             return Phaser.Geom.Rectangle.Contains(bounds, worldX, worldY);
-         };
+         // Check palette panel bounds (top area)
+         const paletteHeight = 70;
+         const paletteRect = new Phaser.Geom.Rectangle(0, 0, this.currentWidth, paletteHeight);
+         if (Phaser.Geom.Rectangle.Contains(paletteRect, sceneX, sceneY)) return true;
 
-         // Check palette panel container bounds (assuming it's at scene 0,0)
-         // GetBounds() on container might work if children are simple.
-         if (this.palettePanel && this.palettePanel.active) {
-              // Check bounds of the palette container itself first
-               // Need to define the Rect manually based on panel position/size
-               const paletteRect = new Phaser.Geom.Rectangle(0, 0, LevelEditorScene.WIDTH, 70); // Assumes panel at 0,0, height 70
-               if (Phaser.Geom.Rectangle.Contains(paletteRect, sceneX, sceneY)) return true;
-               // Individual icon checks within palette are less reliable with getBounds() unless they are top-level
-         }
-
-
-         // Check save button and its background (positioned relative to scene bottom-left)
+         // Check save button (bottom-left)
           const saveButtonWidth = 110;
           const saveButtonHeight = 30;
           const saveButtonX = 10;
-          const saveButtonY = LevelEditorScene.HEIGHT - saveButtonHeight - 10;
+          const saveButtonY = this.currentHeight - saveButtonHeight - 10;
           const saveRect = new Phaser.Geom.Rectangle(saveButtonX, saveButtonY, saveButtonWidth, saveButtonHeight);
           if (Phaser.Geom.Rectangle.Contains(saveRect, sceneX, sceneY)) return true;
-
 
          // Check menu overlays (they cover the whole scene viewport when active)
          if (this.enemySelectOverlay && this.enemySelectOverlay.active) return true;
          if (this.itemSelectOverlay && this.itemSelectOverlay.active) return true;
 
-         // Check gamepad info button (positioned bottom-right)
-          const infoButtonSize = 30; // Estimate size
-          const infoButtonX = LevelEditorScene.WIDTH - infoButtonSize - 5;
-          const infoButtonY = LevelEditorScene.HEIGHT - infoButtonSize - 5;
-          const infoRect = new Phaser.Geom.Rectangle(infoButtonX, infoButtonY, infoButtonSize, infoButtonSize);
-          if (Phaser.Geom.Rectangle.Contains(infoRect, sceneX, sceneY)) return true;
+         // Check gamepad info button (bottom-right)
+          if (this.gamepadInfoButton && this.gamepadInfoButton.active) {
+               const infoButtonSize = 30; // Approximate size
+               const margin = 10;
+               const infoButtonX = this.currentWidth - infoButtonSize - margin; // Adjusted X
+               const infoButtonY = this.currentHeight - infoButtonSize - margin; // Adjusted Y
+               const infoRect = new Phaser.Geom.Rectangle(infoButtonX, infoButtonY, infoButtonSize, infoButtonSize);
+               if (Phaser.Geom.Rectangle.Contains(infoRect, sceneX, sceneY)) return true;
+          }
 
           // Check help panel overlay
           if (this.gamepadHelpOverlay && this.gamepadHelpOverlay.active) return true;
@@ -1470,7 +1498,7 @@ export default class LevelEditorScene extends Phaser.Scene {
         return false;
     }
 
-    // --- Stage Management --- (Logic remains mostly the same, uses helpers)
+    // --- Stage Management ---
 
     async saveLevel() {
          if (!this.hasUnsavedChanges) {
@@ -1484,17 +1512,18 @@ export default class LevelEditorScene extends Phaser.Scene {
              return;
          }
 
-        this.showTemporaryMessage(`Saving Stage ${this.currentStage}...`, '#ffffff', 0); // 0 duration = persist until success/fail
+        this.showTemporaryMessage(`Saving Stage ${this.currentStage}...`, '#ffffff', 0); // Persistent
 
         try {
             if (!Array.isArray(this.enemyList)) throw new Error("Enemy list data is invalid.");
+            // Ensure list matches current grid dimensions before saving
             this.enemyList = this.enemyList.slice(0, this.gridRows);
             while (this.enemyList.length < this.gridRows) this.enemyList.push(Array(this.gridCols).fill("00"));
              this.enemyList = this.enemyList.map(row => {
                  if (!Array.isArray(row)) row = Array(this.gridCols).fill("00");
                  row = row.slice(0, this.gridCols);
                  while (row.length < this.gridCols) row.push("00");
-                 return row.map(cell => (typeof cell === 'string' ? cell : "00"));
+                 return row.map(cell => (typeof cell === 'string' && cell.length === 2 ? cell : "00"));
              });
 
             const path = `games/evil-invaders/stage${this.currentStage}/enemylist`;
@@ -1502,11 +1531,11 @@ export default class LevelEditorScene extends Phaser.Scene {
 
             this.hasUnsavedChanges = false;
             this.updateSaveButtonState();
-            this.showTemporaryMessage(`Stage ${this.currentStage} Saved!`, '#00ff00'); // Success message replaces Saving...
+            this.showTemporaryMessage(`Stage ${this.currentStage} Saved!`, '#00ff00'); // Success replaces Saving...
             console.log(`Stage ${this.currentStage} saved successfully.`);
         } catch (error) {
             console.error(`Error saving stage ${this.currentStage}:`, error);
-            this.showTemporaryMessage(`Save Error: ${error.message || 'Unknown error'}`, '#ff0000', 5000); // Show error for 5s
+            this.showTemporaryMessage(`Save Error: ${error.message || 'Unknown error'}`, '#ff0000', 5000);
         }
     }
 
@@ -1523,16 +1552,18 @@ export default class LevelEditorScene extends Phaser.Scene {
              return;
          }
 
-        this.showTemporaryMessage(`Loading Stage ${stageNumber}...`, '#ffffff', 0); // Persistent loading message
+        this.showTemporaryMessage(`Loading Stage ${stageNumber}...`, '#ffffff', 0); // Persistent
 
          const previousStage = this.currentStage;
 
         try {
             this.currentStage = stageNumber;
-            this.updateStageButtons(); // Update UI immediately
-            await this.fetchEnemyList(); // Fetch new data
+            // Update UI immediately (find the button and highlight it)
+            this.updateStageButtons(); // Will re-evaluate highlights based on new currentStage
 
-             // Re-populate grid visually (calls cleanup)
+            await this.fetchEnemyList(); // Fetch new data (validates/pads list)
+
+            // Re-populate grid visually (calls cleanup first)
             this.populateGridFromEnemyList();
 
             this.hasUnsavedChanges = false;
@@ -1544,7 +1575,6 @@ export default class LevelEditorScene extends Phaser.Scene {
             this.showTemporaryMessage(`Error Loading Stage ${stageNumber}!`, '#ff0000', 5000);
              this.currentStage = previousStage; // Revert stage number
              this.updateStageButtons(); // Update UI back
-             // Consider attempting to reload previous stage data here if needed
         }
     }
 
@@ -1565,94 +1595,83 @@ export default class LevelEditorScene extends Phaser.Scene {
             this.currentStage = newStageNumber;
             this.availableStages.push(newStageNumber);
             this.availableStages.sort((a, b) => a - b);
-            this.initializeDefaultEnemyList();
+            this.initializeDefaultEnemyList(); // Creates empty list matching grid dimensions
 
             const path = `games/evil-invaders/stage${newStageNumber}/enemylist`;
-            await set(ref(this.database, path), this.enemyList);
+            await set(ref(this.database, path), this.enemyList); // Save the empty list
 
             // Clear visual grid content
             this.cleanupGameObjects();
-            // Ensure enemyGroup is recreated after cleanup
-             if (!this.enemyGroup) {
+             if (!this.enemyGroup) { // Ensure group exists after cleanup
                  this.enemyGroup = this.add.group();
              }
 
             // Recreate palette panel to include the new stage button
-             if (this.palettePanel) this.palettePanel.destroy();
-             if (this.saveButton) this.saveButton.destroy();
-             if (this.saveButtonBg) this.saveButtonBg.destroy();
-            this.createPalettePanel(); // Recreates panel, stage buttons, save button
+             // This is needed because updateStageButtonsUI assumes palettePanel exists
+             this.createPalettePanel(); // Recreates panel, stage buttons, save button
 
-            // Populate the (now empty) grid visually
-            // this.populateGridFromEnemyList(); // Already cleaned up, grid is visually empty
-
-            this.hasUnsavedChanges = false;
+            this.hasUnsavedChanges = false; // New stage starts clean
              this.updateSaveButtonState();
             this.showTemporaryMessage(`Stage ${newStageNumber} Created!`, '#00ff00');
 
         } catch (error) {
             console.error("Error creating new stage:", error);
             this.showTemporaryMessage("Error Creating Stage!", '#ff0000', 5000);
-             // Consider reverting availableStages/currentStage changes if Firebase write failed
+             // Consider removing new stage number from availableStages if save failed
+             const index = this.availableStages.indexOf(this.currentStage);
+             if(index > -1) this.availableStages.splice(index, 1);
+             // Revert to previous stage? Difficult without knowing what it was.
         }
     }
 
 
     // --- Helpers & Utilities ---
 
-     // Centralized function for temporary messages
      showTemporaryMessage(text, color = '#ffffff', duration = 2000) {
-          // Remove existing message if any
-          const existingMessage = this.children.getByName('tempMessage');
-          if (existingMessage) existingMessage.destroy();
+          if (this.tempMessageText) this.tempMessageText.destroy(); // Remove existing
 
-          const messageText = this.add.text(
-               LevelEditorScene.WIDTH / 2,
-               LevelEditorScene.HEIGHT / 2, // Center within the window
+          this.tempMessageText = this.add.text(
+               this.currentWidth / 2, // Use current width
+               this.currentHeight / 2, // Use current height
                text,
                {
-                    fontSize: '18px', // Slightly smaller
+                    fontSize: '18px',
                     color: color,
-                    backgroundColor: 'rgba(0,0,0,0.7)', // Dark semi-transparent background
+                    backgroundColor: 'rgba(0,0,0,0.7)',
                     padding: { x: 15, y: 8 },
                     align: 'center',
-                    wordWrap: { width: LevelEditorScene.WIDTH * 0.8 } // Wrap text if needed
+                    wordWrap: { width: this.currentWidth * 0.8 }
                }
-          )
-               .setOrigin(0.5)
-               .setDepth(10003) // Ensure it's above menus/overlays
-               .setName('tempMessage'); // Assign name for easy removal
+          ).setOrigin(0.5).setDepth(10003);
 
-          // Auto-destroy after duration, unless duration is 0 or less
           if (duration > 0) {
                this.time.delayedCall(duration, () => {
-                    messageText.destroy();
+                    if (this.tempMessageText) this.tempMessageText.destroy();
+                    this.tempMessageText = null;
                });
           }
      }
 
     updateStageButtons() {
-         if (!this.paletteIcons || !this.palettePanel) return; // Ensure panel and icons exist
+         if (!this.paletteIcons || !this.palettePanel) return;
 
-        // Iterate through children of the palette panel container
         this.palettePanel.list.forEach(icon => {
              if (icon && icon.active && icon.getData && typeof icon.getData === 'function') {
                  if (icon.getData('isStageButton')) {
                      const stageNum = icon.getData('stageNumber');
                      const bg = icon.getData('stageButtonBg');
                      const isActive = (stageNum === this.currentStage);
-                     const buttonX = icon.getData('buttonX'); // Use stored relative X
-                     const buttonY = icon.getData('buttonY'); // Use stored relative Y
+                     const buttonX = icon.getData('buttonX');
+                     const buttonY = icon.getData('buttonY');
                      const buttonSize = icon.getData('buttonSize');
-
 
                      if (typeof icon.setColor === 'function') {
                          icon.setColor(isActive ? "#fff" : "#ccc");
                      }
-                     if (bg?.active && typeof bg.clear === 'function') { // Check bg exists and is active
+                     if (bg?.active && typeof bg.clear === 'function') {
                           bg.clear()
                               .fillStyle(isActive ? 0xf39c12 : 0x555555, isActive ? 0.9 : 0.8)
-                              .fillRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 14); // Use stored coords/size
+                              .fillRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 14);
                      }
                  }
              }
@@ -1663,25 +1682,28 @@ export default class LevelEditorScene extends Phaser.Scene {
          console.log("Cleaning up game objects...");
          if (this.enemyGroup && typeof this.enemyGroup.getChildren === 'function') {
              this.enemyGroup.getChildren().forEach(sprite => {
-                 if (sprite?.getData) { // Check sprite exists
+                 if (sprite?.getData) {
                      const powerupContainer = sprite.getData("powerupContainer");
-                     if (powerupContainer?.destroy) { // Check container exists
+                     if (powerupContainer?.destroy) {
                          powerupContainer.destroy();
                      }
                  }
              });
               if (typeof this.enemyGroup.clear === 'function') {
-                 this.enemyGroup.clear(true, true); // Destroy children and remove them
+                 this.enemyGroup.clear(true, true);
               }
+         } else {
+             // If group doesn't exist, ensure it's null
+              this.enemyGroup = null;
          }
 
-        if (this.cursorPreview?.destroy) { // Check preview exists
+        if (this.cursorPreview?.destroy) {
             this.cursorPreview.destroy();
             this.cursorPreview = null;
         }
         this.closeEnemySelectMenu();
         this.closeItemSelectMenu();
-        this.menuOpen = false;
+        this.menuOpen = false; // Ensure menu flag is reset
 
         console.log("Game objects cleanup finished.");
     }
@@ -1728,6 +1750,7 @@ export default class LevelEditorScene extends Phaser.Scene {
                 this.enemyList = generateAestheticLayout(gridConfig, distribution);
             }
 
+             // Validate generated list
              if (!Array.isArray(this.enemyList) || this.enemyList.length !== this.gridRows || !this.enemyList.every(r => Array.isArray(r) && r.length === this.gridCols)) {
                   console.error("Generated enemy list is invalid. Re-initializing default.");
                   this.initializeDefaultEnemyList();
@@ -1747,23 +1770,26 @@ export default class LevelEditorScene extends Phaser.Scene {
 
     // --- Gamepad Instructions ---
     createGamepadInstructions() {
-         // Position relative to bottom-right of the window
-          const buttonSize = 30; // Approximate size
-          const margin = 10;
-         const buttonX = LevelEditorScene.WIDTH - buttonSize / 2 - margin;
-         const buttonY = LevelEditorScene.HEIGHT - buttonSize / 2 - margin;
+          // Destroy existing button if present
+          if (this.gamepadInfoButton) this.gamepadInfoButton.destroy();
 
+          const buttonSize = 30;
+          const margin = 10;
+         // Use current dimensions for positioning
+         const buttonX = this.currentWidth - buttonSize / 2 - margin;
+         const buttonY = this.currentHeight - buttonSize / 2 - margin;
 
         this.gamepadInfoButton = this.add.text(buttonX, buttonY, "ℹ️",
-            { fontSize: '20px', color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 5, y: 2 }, } // Slightly smaller
-        ).setOrigin(0.5).setInteractive().setDepth(501);
+            { fontSize: '20px', color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 5, y: 2 } }
+        ).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(501);
 
-         this.gamepadInfoButton.on("pointerdown", () => this.showGamepadHelp(LevelEditorScene.WIDTH, LevelEditorScene.HEIGHT));
+         this.gamepadInfoButton.on("pointerdown", () => this.showGamepadHelp(this.currentWidth, this.currentHeight));
           this.gamepadInfoButton.on("pointerover", () => this.gamepadInfoButton?.setColor('#ffff00'));
           this.gamepadInfoButton.on("pointerout", () => this.gamepadInfoButton?.setColor('#ffffff'));
 
+         // Restart tween
          if (this.tweens && this.gamepadInfoButton) {
-              this.tweens.killTweensOf(this.gamepadInfoButton); // Kill previous tween if exists
+              this.tweens.killTweensOf(this.gamepadInfoButton);
              this.tweens.add({ targets: this.gamepadInfoButton, scale: { from: 1, to: 1.15 }, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
          }
     }
@@ -1773,15 +1799,13 @@ export default class LevelEditorScene extends Phaser.Scene {
          if (this.gamepadHelpPanel) this.gamepadHelpPanel.destroy();
          if (this.gamepadHelpOverlay) this.gamepadHelpOverlay.destroy();
 
-        // Overlay covers the scene viewport
         this.gamepadHelpOverlay = this.add.rectangle(0, 0, containerWidth, containerHeight, 0x000000, 0.8)
             .setOrigin(0).setInteractive().setDepth(10001);
 
-        // Panel centered within the viewport
         this.gamepadHelpPanel = this.add.container(containerWidth / 2, containerHeight / 2)
             .setDepth(10002);
 
-        const panelWidth = Math.min(450, containerWidth - 40); // Adjust size based on container
+        const panelWidth = Math.min(450, containerWidth - 40);
         const panelHeight = Math.min(360, containerHeight - 60);
         const bg = this.add.graphics();
          bg.fillStyle(0x333333, 0.95);
@@ -1790,9 +1814,8 @@ export default class LevelEditorScene extends Phaser.Scene {
          bg.strokeRoundedRect(-panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 15);
         this.gamepadHelpPanel.add(bg);
 
-
         const title = this.add.text(0, -panelHeight / 2 + 25, "GAMEPAD CONTROLS", {
-            fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#FFFFFF" // Smaller title
+            fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#FFFFFF"
         }).setOrigin(0.5);
         this.gamepadHelpPanel.add(title);
 
@@ -1809,14 +1832,14 @@ export default class LevelEditorScene extends Phaser.Scene {
             "Tap overlay to close"
         ];
         let y = -panelHeight / 2 + 60;
-        const textStyle = { fontFamily: "monospace", fontSize: "15px", color: "#E0E0E0", align: 'left'}; // Smaller font
+        const textStyle = { fontFamily: "monospace", fontSize: "15px", color: "#E0E0E0", align: 'left'};
          const textX = -panelWidth / 2 + 25;
 
         instructions.forEach(line => {
-              if (y > panelHeight / 2 - 30) return; // Prevent text overflowing panel
+              if (y > panelHeight / 2 - 30) return;
              const txt = this.add.text(textX, y, line, textStyle).setOrigin(0, 0);
             this.gamepadHelpPanel.add(txt);
-            y += 24; // Adjust line spacing
+            y += 24;
         });
 
         this.gamepadHelpOverlay.on("pointerdown", () => {
@@ -1827,10 +1850,47 @@ export default class LevelEditorScene extends Phaser.Scene {
         });
     }
 
+    // Called by EditorScene when the window is resized (fullscreen toggle)
+    resizeScene(newWidth, newHeight)
+    {
+        this.currentWidth = newWidth;
+        this.currentHeight = newHeight;
+
+        if (!this.cameras.main) return;
+
+        // Update the camera viewport size
+        this.cameras.main.setSize(newWidth, newHeight);
+
+        // Scale background frame
+        if (this.bg) {
+             this.bg.setDisplaySize(newWidth, newHeight);
+        }
+
+        // Recalculate cell size for the new dimensions
+        this.calculateCellSize();
+
+        // Redraw the grid based on new cell sizes
+        this.drawGrid();
+
+        // Recreate the palette panel to fit the new width and reposition buttons
+        this.createPalettePanel(); // Also recreates save button and gamepad button
+
+        // Repopulate the grid to reposition all enemies/items correctly
+        this.populateGridFromEnemyList(); // Cleans up old sprites and places new ones
+
+        // Update gamepad manager dimensions if it exists
+        if (this.gamepadManager) {
+            this.gamepadManager.sceneWidth = newWidth;
+            this.gamepadManager.sceneHeight = newHeight;
+            // Maybe reset cursor position to center?
+            // this.gamepadManager.cursor.x = newWidth / 2;
+            // this.gamepadManager.cursor.y = newHeight / 2;
+        }
+
+        console.log(`${this.scene.key} resized to ${newWidth}x${newHeight}`);
+    }
+
     // --- Static Dimensions for EditorScene ---
-    // Define dimensions for the window frame. Adjust these if 'levels-window.png' has different dimensions.
-    // static WIDTH = 408; // Example width (same as Invaders)
-    // static HEIGHT = 326; // Example height (same as Invaders)
-    static WIDTH = 800; // Example width (same as Invaders)
-    static HEIGHT = 600;
+    static WIDTH = 800; // Default width
+    static HEIGHT = 600; // Default height
 }

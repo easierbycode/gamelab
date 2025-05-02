@@ -12,6 +12,8 @@ import {
 class BossViewerScene extends Phaser.Scene {
   // --- Window Properties ---
   parent; // Reference to the parent zone in EditorScene
+  currentWidth = BossViewerScene.WIDTH; // Store current dimensions
+  currentHeight = BossViewerScene.HEIGHT;
 
   // --- Boss Viewer State ---
   explosionTextures = [];
@@ -30,6 +32,7 @@ class BossViewerScene extends Phaser.Scene {
   bossButtonsContainer = null; // Container for boss selection buttons
   pixelImages = []; // For pixel effect
   particleContainer = null; // Container for pixel particles
+  sceneBg = null; // Background graphic
 
 
   // --- Constructor for Window Scene ---
@@ -52,35 +55,44 @@ class BossViewerScene extends Phaser.Scene {
 
   create() {
       // --- Camera and Viewport Setup ---
-      this.cameras.main.setViewport(this.parent.x, this.parent.y, BossViewerScene.WIDTH, BossViewerScene.HEIGHT);
+      this.cameras.main.setViewport(this.parent.x, this.parent.y, this.currentWidth, this.currentHeight);
       this.cameras.main.setBackgroundColor(0x2d2d2d); // Match original background
       this.cameras.main.setScroll(0, 0);
+
+      // Add a background graphic that can be resized
+      this.sceneBg = this.add.graphics();
+      this.redrawBackground(); // Draw initial background
 
       // --- Load Boss Data ---
       // Assume 'game.json' is loaded globally and accessible via cache
       if (this.cache.json.has('game.json')) {
           this.bossData = this.cache.json.get('game.json').bossData;
       } else {
-          this.add.text(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT / 2, 'Error: game.json not found in cache.', { color: '#ff0000', fontSize: '16px' }).setOrigin(0.5);
+          this.add.text(this.currentWidth / 2, this.currentHeight / 2, 'Error: game.json not found in cache.', { color: '#ff0000', fontSize: '16px' }).setOrigin(0.5);
           console.error("BossViewerScene Error: 'game.json' not found in cache.");
           return; // Stop creation if data is missing
       }
 
       // --- Initialize Scene ---
-      this.initScene();
+      this.initScene(); // Sets up UI containers etc.
 
-       // Add a subtle background or frame if desired, or keep it simple
-       const bg = this.add.graphics();
-       bg.fillStyle(0x1a1a1a, 0.5); // Darker, slightly transparent background
-       bg.fillRect(0, 0, BossViewerScene.WIDTH, BossViewerScene.HEIGHT);
-       bg.lineStyle(1, 0x555555);
-       bg.strokeRect(0, 0, BossViewerScene.WIDTH, BossViewerScene.HEIGHT);
-       this.add.existing(bg);
+      // Initial resize call to position UI elements correctly
+      this.resizeScene(this.currentWidth, this.currentHeight);
   }
+
+    redrawBackground() {
+        if (!this.sceneBg) return;
+        this.sceneBg.clear();
+        this.sceneBg.fillStyle(0x1a1a1a, 0.8); // Slightly more transparent
+        this.sceneBg.fillRect(0, 0, this.currentWidth, this.currentHeight);
+        this.sceneBg.lineStyle(1, 0x555555);
+        this.sceneBg.strokeRect(0, 0, this.currentWidth, this.currentHeight);
+    }
 
   // Called by EditorScene when the parent zone is dragged
   refresh ()
   {
+      if (!this.parent) return;
       // Update camera position to match the parent zone
       this.cameras.main.setPosition(this.parent.x, this.parent.y);
 
@@ -104,7 +116,7 @@ class BossViewerScene extends Phaser.Scene {
           this.bossData.bosses.length === 0
       ) {
           this.add
-              .text(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT / 2, "Error: Could not load boss data", {
+              .text(this.currentWidth / 2, this.currentHeight / 2, "Error: Could not load boss data", {
                   color: "#ff0000",
                   fontSize: "18px",
               })
@@ -116,12 +128,12 @@ class BossViewerScene extends Phaser.Scene {
 
       // Check if 'game_asset' atlas is loaded
        if (!this.textures.exists('game_asset')) {
-            this.add.text(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT / 2, 'Error: game_asset atlas not loaded.', { color: '#ffcc00', fontSize: '16px' }).setOrigin(0.5);
+            this.add.text(this.currentWidth / 2, this.currentHeight / 2, 'Error: game_asset atlas not loaded.', { color: '#ffcc00', fontSize: '16px' }).setOrigin(0.5);
             console.error("BossViewerScene Error: 'game_asset' atlas not found.");
             return; // Stop if essential texture is missing
        }
 
-      // Set up UI
+      // Set up UI - Create containers but resizeScene will position them
       this.createUI();
 
       // Select first boss by default if available
@@ -228,33 +240,48 @@ class BossViewerScene extends Phaser.Scene {
 
 
   createUI() {
-      // Add title within the window
-      this.add
-          .text(BossViewerScene.WIDTH / 2, 20, "Boss Character Viewer", {
+       // Destroy previous UI if it exists to prevent duplicates on resize/refresh
+       this.bossInfo.forEach(item => item?.destroy());
+       this.bossInfo = [];
+       if (this.characterContainer) this.characterContainer.destroy();
+       if (this.bossButtonsContainer) this.bossButtonsContainer.destroy();
+       if (this.animButtonsContainer) this.animButtonsContainer.destroy();
+
+      // Add title within the window (position adjusted in resizeScene)
+      this.bossInfo.push(this.add
+          .text(0, 0, "Boss Character Viewer", {
               color: "#ffffff", fontSize: "20px", fontStyle: "bold",
           })
-          .setOrigin(0.5);
+          .setOrigin(0.5));
 
-      // Character display area centered in the window
-      this.characterContainer = this.add.container(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT / 2 - 30); // Adjust Y position
+      // Character display area centered in the window (position adjusted in resizeScene)
+      this.characterContainer = this.add.container(0, 0);
 
-      // Boss selection buttons container (horizontal list below title)
-      this.bossButtonsContainer = this.add.container(BossViewerScene.WIDTH / 2, 60); // Y position for boss buttons
-      this.createBossButtons();
+      // Boss selection buttons container (position adjusted in resizeScene)
+      this.bossButtonsContainer = this.add.container(0, 0);
+      this.createBossButtons(); // Content created, position set later
 
-      // Animation buttons container (bottom area)
-      this.animButtonsContainer = this.add.container(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT - 50); // Y position for anim buttons
+      // Animation buttons container (position adjusted in resizeScene)
+      this.animButtonsContainer = this.add.container(0, 0);
 
-      // Instructions (optional, smaller text)
-       this.add
-           .text(BossViewerScene.WIDTH / 2, BossViewerScene.HEIGHT - 15, "Select boss & animation", {
+      // Instructions (optional, position adjusted in resizeScene)
+      this.bossInfo.push(this.add
+           .text(0, 0, "Select boss & animation", {
                color: "#aaaaaa", fontSize: "12px",
            })
-           .setOrigin(0.5);
+           .setOrigin(0.5));
+
+        // Boss Name text (position adjusted in resizeScene)
+       this.bossInfo.push(this.add
+           .text(0, 0, "", { // Initially empty
+               color: "#ffffff", fontSize: "16px", fontStyle: "bold",
+           })
+           .setOrigin(0.5)
+           .setName('bossNameText')); // Give it a name for easy access
   }
 
   createBossButtons() {
-       if (!this.bossData || !this.bossData.bosses) return;
+       if (!this.bossData || !this.bossData.bosses || !this.bossButtonsContainer) return;
 
       const bosses = this.bossData.bosses;
       // Clear previous buttons
@@ -266,22 +293,19 @@ class BossViewerScene extends Phaser.Scene {
            return;
        }
 
-
-      const buttonWidth = 100; // Slightly smaller buttons
+      // Layout logic moved to resizeScene for dynamic positioning
+      const buttonWidth = 100;
+      const buttonHeight = 30;
       const spacing = 8;
-      const totalWidth = (buttonWidth + spacing) * bosses.length - spacing;
-      let startX = -totalWidth / 2; // Center the buttons relative to the container
 
-      // Create a button for each boss
+      // Create a button for each boss - Position will be set in resizeScene
       bosses.forEach((boss, index) => {
-          if (!boss || !boss.name) return; // Skip invalid bosses
+          if (!boss || !boss.name) return;
 
-          const x = startX + (buttonWidth + spacing) * index + buttonWidth / 2; // Center button
-
-          // Button background
+          // Button background (position 0,0 initially)
           const bg = this.add
-              .rectangle(x, 0, buttonWidth, 30, 0x333333) // Smaller height
-              .setInteractive()
+              .rectangle(0, 0, buttonWidth, buttonHeight, 0x333333)
+              .setInteractive({ useHandCursor: true })
               .on("pointerdown", () => {
                    this.highlightBossButton(bg);
                    this.selectBoss(boss);
@@ -290,10 +314,10 @@ class BossViewerScene extends Phaser.Scene {
               .on('pointerout', () => { if(bg !== this.activeBossButton) bg.setFillStyle(0x333333); });
 
 
-          // Button text
+          // Button text (position 0,0 initially)
           const text = this.add
-              .text(x, 0, boss.name.replace('_', ' '), { // Replace underscores for display
-                  color: "#ffffff", fontSize: "12px", // Smaller font
+              .text(0, 0, boss.name.replace('_', ' '), {
+                  color: "#ffffff", fontSize: "12px",
                   align: 'center',
                   wordWrap: { width: buttonWidth - 10 }
               })
@@ -301,7 +325,7 @@ class BossViewerScene extends Phaser.Scene {
 
           // Add to container and track
           this.bossButtonsContainer.add([bg, text]);
-          this.bossButtons.push({ bg, text, boss }); // Store references for highlighting
+          this.bossButtons.push({ bg, text, boss });
       });
   }
 
@@ -320,6 +344,8 @@ class BossViewerScene extends Phaser.Scene {
    }
 
   createAnimButtons(boss) {
+      if (!this.animButtonsContainer) return; // Ensure container exists
+
       // Clear previous buttons
       this.animButtonsContainer.removeAll(true);
       this.animButtons = [];
@@ -329,23 +355,22 @@ class BossViewerScene extends Phaser.Scene {
               .text(0, 0, "No animations available", { color: "#ff5555", fontSize: "14px" })
               .setOrigin(0.5);
           this.animButtonsContainer.add(noAnims);
-          this.animButtons.push(noAnims); // Add to array for potential cleanup
+          this.animButtons.push({ text: noAnims }); // Add to array for potential cleanup/layout
+          this.updateAnimButtonsLayout(); // Center the 'no anims' text
           return;
       }
 
+      // Layout logic moved to resizeScene
       const buttonWidth = 100;
+      const buttonHeight = 30;
       const spacing = 8;
-      const totalWidth = (buttonWidth + spacing) * boss.anims.length - spacing;
-      let startX = -totalWidth / 2; // Center relative to container
 
-      // Create a button for each animation
+      // Create a button for each animation - Position set in resizeScene
       boss.anims.forEach((anim, index) => {
-          const x = startX + (buttonWidth + spacing) * index + buttonWidth / 2;
-
-          // Button background
+          // Button background (position 0,0 initially)
           const bg = this.add
-              .rectangle(x, 0, buttonWidth, 30, 0x444444)
-              .setInteractive()
+              .rectangle(0, 0, buttonWidth, buttonHeight, 0x444444)
+              .setInteractive({ useHandCursor: true })
               .on("pointerdown", () => {
                   this.highlightAnimButton(bg);
                   this.playAnimation(anim);
@@ -353,14 +378,16 @@ class BossViewerScene extends Phaser.Scene {
               .on('pointerover', () => { if (bg !== this.activeAnimButton) bg.setFillStyle(0x666666); })
               .on('pointerout', () => { if (bg !== this.activeAnimButton) bg.setFillStyle(0x444444); });
 
-          // Button text
+          // Button text (position 0,0 initially)
           const text = this.add
-              .text(x, 0, anim, { color: "#00ff00", fontSize: "12px", align: 'center' })
+              .text(0, 0, anim, { color: "#00ff00", fontSize: "12px", align: 'center' })
               .setOrigin(0.5);
 
           this.animButtonsContainer.add([bg, text]);
-          this.animButtons.push({ bg, text }); // Store for highlighting/cleanup
+          this.animButtons.push({ bg, text }); // Store for highlighting/cleanup/layout
       });
+
+      this.updateAnimButtonsLayout(); // Position the newly created buttons
   }
 
    highlightAnimButton(selectedBg) {
@@ -385,6 +412,9 @@ class BossViewerScene extends Phaser.Scene {
       // Early return if selecting the same boss
       if (this.activeBoss && this.activeBoss.id === boss.id) {
           console.log(`Boss ${boss.name || boss.id} already selected`);
+           // Still highlight the button if it was somehow deselected
+           const currentButton = this.bossButtons.find(btn => btn.boss.id === boss.id);
+           if (currentButton) this.highlightBossButton(currentButton.bg);
           return;
       }
 
@@ -392,26 +422,25 @@ class BossViewerScene extends Phaser.Scene {
       this.activeBoss = boss;
 
       // Clean up previous resources
-      this.cleanup();
+      this.cleanup(); // Cleans sprite, particles, etc.
 
       // Check texture availability early
       if (!this.textures.exists("game_asset")) {
-          this.displayPlaceholder(boss);
-          return;
+           this.displayPlaceholder(boss);
+           this.updateUIForSelectedBoss(boss); // Update UI even if placeholder
+           return;
       }
 
       try {
-          // Create boss instance (needed for potential data access, less critical for viewer)
-          // const bossInstance = this.createBossInstance(boss); // Might not be needed just for viewing
-
           // Create sprite with optimal frame selection
           const sprite = this.createBossSprite(boss);
           if (!sprite) {
               this.showError("Failed to create sprite for " + (boss.name || boss.id));
-              return;
+               this.updateUIForSelectedBoss(boss); // Update UI even if sprite fails
+               return;
           }
 
-          // Scale and add to container
+          // Scale and add to container (position set in resizeScene)
           sprite.setScale(boss.scale || 1.5); // Adjusted default scale for window view
           this.characterContainer.add(sprite);
           this.activeSprite = sprite;
@@ -421,8 +450,7 @@ class BossViewerScene extends Phaser.Scene {
           this.playBossAnimation(boss);
 
           // Update UI elements
-          this.createAnimButtons(boss);
-          this.updateBossInfo(boss);
+          this.updateUIForSelectedBoss(boss); // Creates anim buttons, updates text
 
            // Initial button highlight
            const initialButton = this.bossButtons.find(btn => btn.boss.id === boss.id);
@@ -431,8 +459,17 @@ class BossViewerScene extends Phaser.Scene {
       } catch (e) {
           console.error("Error in selectBoss:", e);
           this.showError(`Error selecting ${boss.name || boss.id}: ${e.message}`);
+           this.updateUIForSelectedBoss(boss); // Attempt to update UI on error
       }
   }
+
+    // Helper to group UI updates after selecting a boss
+    updateUIForSelectedBoss(boss) {
+        this.createAnimButtons(boss);
+        this.updateBossInfoText(boss); // Update the boss name display
+        this.resizeScene(this.currentWidth, this.currentHeight); // Re-run layout calculations
+    }
+
 
   // Extract sprite creation logic
   createBossSprite(boss) {
@@ -447,13 +484,14 @@ class BossViewerScene extends Phaser.Scene {
 
               // Start the pixel assembly effect
               this.assemblePixelCharacter(boss).then(() => {
+                   if (!sprite || !sprite.active) return; // Check if sprite still valid
                   this.time.delayedCall(1500, () => {
                       this.explodePixelCharacter();
                       this.time.delayedCall(300, () => {
-                          if (this.activeSprite === sprite) { // Ensure we are still on the same boss
+                          if (this.activeSprite === sprite && sprite.active) { // Ensure we are still on the same boss and sprite exists
                               sprite.setVisible(true);
-                          } else {
-                              sprite.destroy(); // Clean up if boss changed during effect
+                          } else if (sprite.active) {
+                              sprite.destroy(); // Clean up if boss changed during effect or sprite became inactive
                           }
                       });
                   });
@@ -538,11 +576,13 @@ class BossViewerScene extends Phaser.Scene {
 
                // Create a container specifically for particles
                if (this.particleContainer) this.particleContainer.destroy();
-               this.particleContainer = this.add.container(0, 0).setDepth(1); // Ensure particles are behind main sprite
+                // Position particle container relative to main character container
+               this.particleContainer = this.add.container(0, 0).setDepth(1);
+               this.characterContainer?.add(this.particleContainer); // Add to character container
 
-               // Calculate character center position in the scene window
-               const centerX = BossViewerScene.WIDTH / 2;
-               const centerY = BossViewerScene.HEIGHT / 2 - 30; // Match characterContainer offset
+               // Calculate character center position (relative to character container's origin 0,0)
+               const centerX = 0;
+               const centerY = 0;
 
                const sampleRate = 2; // Performance adjustment
                const maxParticles = 5000; // Performance limit
@@ -568,14 +608,15 @@ class BossViewerScene extends Phaser.Scene {
                            const finalX = centerX + offsetX;
                            const finalY = centerY + offsetY;
 
-                           const startX = Phaser.Math.Between(0, BossViewerScene.WIDTH);
-                           const startY = Phaser.Math.Between(0, BossViewerScene.HEIGHT);
+                           // Start particles from random positions within the window bounds
+                           const startX = Phaser.Math.Between(-this.currentWidth / 2, this.currentWidth / 2);
+                           const startY = Phaser.Math.Between(-this.currentHeight / 2, this.currentHeight / 2);
 
                            const image = this.add.image(startX, startY, "pixel").setScale(0);
                            color.setTo(r, g, b, a);
                            image.setTint(color.color);
 
-                           this.particleContainer.add(image); // Add to dedicated container
+                           this.particleContainer.add(image); // Add to dedicated container within character container
                            this.pixelImages.push({ image: image, finalX: finalX, finalY: finalY });
 
                            const delay = Math.random() * 500; // Random delay for assembly
@@ -608,8 +649,9 @@ class BossViewerScene extends Phaser.Scene {
                } else {
                    console.log(`Created ${particleCount} particles for assembly effect.`);
                }
-                // Ensure character container is above particle container
-               if (this.characterContainer) this.characterContainer.setDepth(10);
+                // Ensure main sprite (if added later) is above particle container
+               if (this.activeSprite) this.characterContainer?.bringToTop(this.activeSprite);
+
 
            } catch (err) {
                 Phaser.Display.Canvas.CanvasPool.remove(tempCanvas); // Ensure cleanup on error
@@ -628,15 +670,26 @@ class BossViewerScene extends Phaser.Scene {
       }
        console.log(`Exploding ${this.pixelImages.length} particles.`);
 
+        // Character container's world position is needed to calculate correct explosion destinations
+        const containerWorldX = this.characterContainer?.x ?? this.currentWidth / 2;
+        const containerWorldY = this.characterContainer?.y ?? this.currentHeight / 2;
+
+
       // Loop through all the pixel images
       this.pixelImages.forEach((pixelObj, index) => {
            if (!pixelObj.image || !pixelObj.image.active) return; // Skip destroyed/inactive
 
-          // Random destination points outside the window
+          // Random destination points outside the window, relative to the *scene* origin
           const angle = Math.random() * Math.PI * 2;
-          const distance = BossViewerScene.WIDTH / 2 + Math.random() * 200; // Explode outwards
-          const destX = BossViewerScene.WIDTH / 2 + Math.cos(angle) * distance;
-          const destY = BossViewerScene.HEIGHT / 2 + Math.sin(angle) * distance;
+          const distance = this.currentWidth / 2 + Math.random() * 200; // Explode outwards from scene center
+           // Calculate destination relative to scene center
+          const destXScene = this.currentWidth / 2 + Math.cos(angle) * distance;
+          const destYScene = this.currentHeight / 2 + Math.sin(angle) * distance;
+
+           // Convert scene destination to be relative to the particle container's origin
+           const destX = destXScene - containerWorldX;
+           const destY = destYScene - containerWorldY;
+
 
           this.tweens.add({
               targets: pixelObj.image,
@@ -658,7 +711,9 @@ class BossViewerScene extends Phaser.Scene {
   // Add a cleanup method to handle resource management
   cleanup() {
       // Stop any running tweens associated with particles or sprite
-      this.tweens.killTweensOf(this.pixelImages.map(p => p.image));
+      if (this.pixelImages) {
+           this.pixelImages.forEach(p => { if (p.image) this.tweens.killTweensOf(p.image); });
+      }
       if(this.activeSprite) this.tweens.killTweensOf(this.activeSprite);
 
       // Clean up pixel images
@@ -679,28 +734,27 @@ class BossViewerScene extends Phaser.Scene {
           this.activeSprite = null;
       }
 
-      // Clean up container contents but keep the container
+      // Clean up character container contents but keep the container
       if (this.characterContainer) {
            this.characterContainer.removeAll(true);
+           // Re-add particle container if needed for next assembly
+           // if (this.particleContainer) this.characterContainer.add(this.particleContainer);
       }
 
       // Clean up boss instance (less critical for viewer, but good practice)
       if (this.currentBossInstance) {
-          // No shooting logic needed for viewer
-          // No bullet cleanup needed
-          // Just nullify reference
           this.currentBossInstance = null;
       }
-
-      // Clear boss info text
-       if (this.bossInfo) {
-           this.bossInfo.forEach(item => item?.destroy());
-           this.bossInfo = [];
-       }
 
        // Reset active button highlights
        this.activeBossButton = null;
        this.activeAnimButton = null;
+
+       // Do not clear bossInfo text here, only update it
+       // if (this.bossInfo) {
+       //     this.bossInfo.forEach(item => item?.destroy());
+       //     this.bossInfo = [];
+       // }
   }
 
   // Optimize boss instance creation (simplified for viewer)
@@ -901,61 +955,183 @@ class BossViewerScene extends Phaser.Scene {
       this.validatedFramesCache.clear();
       this.animationCache.clear();
 
-      // Clear UI containers explicitly if they might persist
-       this.bossButtonsContainer?.destroy();
-       this.animButtonsContainer?.destroy();
-       this.characterContainer?.destroy();
+      // Clean up UI elements / containers explicitly
+      this.bossInfo.forEach(item => item?.destroy()); // Destroy texts
+      this.bossInfo = [];
+      this.bossButtonsContainer?.destroy();
+      this.animButtonsContainer?.destroy();
+      this.characterContainer?.destroy();
+      this.sceneBg?.destroy(); // Destroy background graphic
 
       // Clear references
       this.activeBoss = null;
       this.rawBossData = null;
       this.bossData = null;
       this.parent = null; // Break reference to parent zone
+      this.sceneBg = null;
+      this.characterContainer = null;
+      this.bossButtonsContainer = null;
+      this.animButtonsContainer = null;
   }
 
-  updateBossInfo(boss) {
-      // Remove previous info if any
-      if (this.bossInfo) {
-          this.bossInfo.forEach(item => item?.destroy());
-      }
-      this.bossInfo = [];
+   updateBossInfoText(boss) {
+       // Find the text element responsible for showing the boss name
+       const nameText = this.bossInfo.find(item => item.name === 'bossNameText');
+       if (nameText) {
+           nameText.setText((boss.name || boss.id).replace('_', ' '));
+           // Reposition based on current dimensions (done in resizeScene)
+           // nameText.setPosition(this.currentWidth / 2, 100);
+           // nameText.setVisible(true);
+       } else {
+            // If it wasn't found (e.g., destroyed/recreated UI), recreate it? Less ideal.
+            console.warn("Boss name text element not found for update.");
+       }
 
-      // Add boss name (positioned below buttons)
-      const nameText = this.add
-          .text(BossViewerScene.WIDTH / 2, 100, (boss.name || boss.id).replace('_', ' '), { // Y position below boss buttons
-              color: "#ffffff", fontSize: "16px", fontStyle: "bold",
-          })
-          .setOrigin(0.5);
-
-      // Add other info if needed (e.g., boss.description)
-      // const descText = this.add.text(...)
-
-      this.bossInfo = [nameText].filter(Boolean); // Filter out null/undefined
-  }
+       // Find the error text and hide/clear it
+       const errorText = this.bossInfo.find(item => item.name === 'errorText');
+       if (errorText) {
+           errorText.setVisible(false).setText('');
+       }
+   }
 
   // --- Error Handling ---
    showError(message) {
        console.error("BossViewerScene Error:", message);
        // Display error message within the scene window
-       const errorText = this.add.text(
-           BossViewerScene.WIDTH / 2,
-           BossViewerScene.HEIGHT - 80, // Position near the bottom
-           `Error: ${message}`,
-           { color: '#ff5555', fontSize: '14px', backgroundColor: 'rgba(0,0,0,0.7)', padding: { x: 5, y: 3 } }
-       ).setOrigin(0.5);
-        // Add to bossInfo array so it gets cleaned up
-        this.bossInfo.push(errorText);
+       // Try to find existing error text
+       let errorText = this.bossInfo.find(item => item.name === 'errorText');
+       if (!errorText) {
+            errorText = this.add.text(
+                0, 0, // Position set in resizeScene
+                ``,
+                { color: '#ff5555', fontSize: '14px', backgroundColor: 'rgba(0,0,0,0.7)', padding: { x: 5, y: 3 }, align: 'center' }
+            ).setOrigin(0.5).setName('errorText');
+            this.bossInfo.push(errorText); // Add to array so it gets positioned
+       }
+        errorText.setText(`Error: ${message}`).setVisible(true);
+        this.updateErrorTextPosition(); // Update position immediately
+
+        // Optional: Hide after a delay
+        // this.time.delayedCall(5000, () => { errorText?.setVisible(false); });
    }
+
+    updateErrorTextPosition() {
+        const errorText = this.bossInfo.find(item => item.name === 'errorText');
+        if (errorText) {
+             errorText.setPosition(this.currentWidth / 2, this.currentHeight - 80); // Position near the bottom
+        }
+    }
 
     displayPlaceholder(boss) {
         console.warn(`Displaying placeholder for boss: ${boss.name || boss.id}`);
+         if (!this.characterContainer) return; // Need container
+         this.characterContainer.removeAll(true); // Clear previous content
         this.characterContainer.add(
             this.add.text(0, 0, `Cannot display\n${boss.name || boss.id}\n(Missing Assets)`, {
                 color: '#ffcc00', fontSize: '18px', align: 'center'
             }).setOrigin(0.5)
         );
-         this.createAnimButtons({ anims: [] }); // Show "No animations" message
-         this.updateBossInfo(boss);
+         // createAnimButtons({ anims: [] }); // Show "No animations" message - Handled by updateUI...
+         // updateBossInfoText(boss); // Handled by updateUI...
+    }
+
+    // Called by EditorScene when the window is resized (fullscreen toggle)
+    resizeScene(newWidth, newHeight)
+    {
+        this.currentWidth = newWidth;
+        this.currentHeight = newHeight;
+
+        if (!this.cameras.main) return;
+
+        // Update the camera viewport size
+        this.cameras.main.setSize(newWidth, newHeight);
+
+        // Redraw background
+        this.redrawBackground();
+
+        // --- Reposition UI elements ---
+        const centerX = newWidth / 2;
+        const topMargin = 20;
+        const bossButtonY = 60;
+        const bossNameY = bossButtonY + 45; // Below boss buttons
+        const characterY = bossNameY + (newHeight - bossNameY - 80) / 2; // Center remaining space
+        const animButtonY = newHeight - 50;
+        const instructionsY = newHeight - 15;
+
+        // Title
+        const titleText = this.bossInfo.find(item => item.text.includes("Viewer"));
+        if (titleText) titleText.setPosition(centerX, topMargin);
+
+        // Boss Name
+        const nameText = this.bossInfo.find(item => item.name === 'bossNameText');
+        if (nameText) nameText.setPosition(centerX, bossNameY);
+
+        // Character Container (holds sprite and particles)
+        if (this.characterContainer) {
+            this.characterContainer.setPosition(centerX, characterY);
+            // Rescale active sprite? Maybe not needed if layout adjusts.
+            // if (this.activeSprite) this.activeSprite.setScale( ... );
+        }
+
+        // Boss Buttons Container
+        if (this.bossButtonsContainer) {
+            this.bossButtonsContainer.setPosition(centerX, bossButtonY);
+            this.updateBossButtonsLayout(); // Recalculate horizontal layout
+        }
+
+        // Anim Buttons Container
+        if (this.animButtonsContainer) {
+            this.animButtonsContainer.setPosition(centerX, animButtonY);
+            this.updateAnimButtonsLayout(); // Recalculate horizontal layout
+        }
+
+        // Instructions Text
+        const instructionsText = this.bossInfo.find(item => item.text.includes("Select boss"));
+        if (instructionsText) instructionsText.setPosition(centerX, instructionsY);
+
+        // Error Text Position
+        this.updateErrorTextPosition();
+
+
+        console.log(`${this.scene.key} resized to ${newWidth}x${newHeight}`);
+    }
+
+    updateBossButtonsLayout() {
+        if (!this.bossButtonsContainer || this.bossButtons.length === 0) return;
+
+        const buttonWidth = 100;
+        const spacing = 8;
+        const totalWidth = (buttonWidth + spacing) * this.bossButtons.length - spacing;
+        let startX = -totalWidth / 2;
+
+        this.bossButtons.forEach((btnData, index) => {
+            const x = startX + (buttonWidth + spacing) * index + buttonWidth / 2;
+            if (btnData.bg) btnData.bg.x = x;
+            if (btnData.text) btnData.text.x = x;
+        });
+    }
+
+    updateAnimButtonsLayout() {
+        if (!this.animButtonsContainer || this.animButtons.length === 0) return;
+
+        // Handle "No animations" text centering
+        if (this.animButtons.length === 1 && !this.animButtons[0].bg) {
+             if (this.animButtons[0].text) this.animButtons[0].text.setPosition(0, 0);
+             return;
+        }
+
+        const buttonWidth = 100;
+        const spacing = 8;
+        // Filter out the potential 'no anims' text entry before calculating width
+        const actualButtons = this.animButtons.filter(b => b.bg);
+        const totalWidth = (buttonWidth + spacing) * actualButtons.length - spacing;
+        let startX = -totalWidth / 2;
+
+        actualButtons.forEach((btnData, index) => {
+            const x = startX + (buttonWidth + spacing) * index + buttonWidth / 2;
+            if (btnData.bg) btnData.bg.x = x;
+            if (btnData.text) btnData.text.x = x;
+        });
     }
 
   // --- Removed Methods ---
