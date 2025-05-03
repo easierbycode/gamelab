@@ -8,6 +8,7 @@ import Boing from './Boing.js';
 import LevelEditorScene from './LevelEditorScene.js';
 import BossViewerScene from './bosses.js'; // Import the new Boss Viewer Scene
 import Example from './specs/Example.js'; // Import Example scene
+import Example2 from './specs/Example2.js'; // Import Example2 scene
 import Example3 from './specs/Example3.js'; // Import Example3 scene
 
 
@@ -192,7 +193,8 @@ class EditorScene extends Phaser.Scene {
         });
 
         // --- Icon Click Handlers ---
-        eyesIcon.on('pointerup', () => { this.createWindow(Stars); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
+        // eyesIcon.on('pointerup', () => { this.createWindow(Stars); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
+        eyesIcon.on('pointerup', () => { this.createWindow(Example2); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
         jugglerIcon.on('pointerup', () => { this.createWindow(BossViewerScene); demosContainer.setVisible(false); }, this); // <<< LAUNCH BOSS VIEWER
         starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // Launch Level Editor
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); demosContainer.setVisible(false); }, this); // Example: Launch Invaders
