@@ -26,7 +26,7 @@ class Example extends Phaser.Scene {
         // Keeping them here for now to ensure the scene runs standalone if needed,
         // but they might be redundant if EditorScene already loads them.
         this.load.image('sky', 'https://play.rosebud.ai/assets/sky.png?6GKQ'); // Not used currently
-        this.load.image('logo', 'https://play.rosebud.ai/assets/logo.png?sVKv'); // Not used currently
+        // this.load.image('logo', 'https://play.rosebud.ai/assets/logo.png?sVKv'); // Not used currently
         this.load.image('red', 'https://play.rosebud.ai/assets/red.png?cpk3'); // Not used currently
         this.load.image('font', 'https://play.rosebud.ai/assets/font.png?KXdX');
         this.load.spritesheet('ship', 'https://play.rosebud.ai/assets/ship-boy.png?Bv56', { frameWidth: 29, frameHeight: 35 });

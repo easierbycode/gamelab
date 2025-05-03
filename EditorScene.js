@@ -193,15 +193,13 @@ class EditorScene extends Phaser.Scene {
         });
 
         // --- Icon Click Handlers ---
-        // eyesIcon.on('pointerup', () => { this.createWindow(Stars); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
-        eyesIcon.on('pointerup', () => { this.createWindow(Example2); demosContainer.setVisible(false); }, this); // Example: Launch Eyes
-        jugglerIcon.on('pointerup', () => { this.createWindow(BossViewerScene); demosContainer.setVisible(false); }, this); // <<< LAUNCH BOSS VIEWER
-        starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // Launch Level Editor
-        invadersIcon.on('pointerup', () => { this.createWindow(Invaders); demosContainer.setVisible(false); }, this); // Example: Launch Invaders
-        // clockIcon.on('pointerup', () => { this.createWindow(Clock); demosContainer.setVisible(false); }, this); // Example: Launch Clock
-        clockIcon.on('pointerup', () => { this.createWindow(Example3); demosContainer.setVisible(false); }, this); // Example: Launch Clock
-        boingIcon.on('pointerup', () => { this.createWindow(Boing); demosContainer.setVisible(false); }, this); // Example: Launch Boing
-        exampleIcon.on('pointerup', () => { this.createWindow(Example); demosContainer.setVisible(false); }, this); // Launch Example Scene
+        eyesIcon.on('pointerup', () => { this.createWindow(Example2); demosContainer.setVisible(false); }, this); // eyesIcon launches Example2
+        jugglerIcon.on('pointerup', () => { this.createWindow(BossViewerScene); demosContainer.setVisible(false); }, this); // jugglerIcon launches BossViewer
+        starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // starsIcon launches LevelEditorScene
+        invadersIcon.on('pointerup', () => { this.createWindow(Invaders); demosContainer.setVisible(false); }, this); // invadersIcon launches Invaders
+        clockIcon.on('pointerup', () => { this.createWindow(Example3); demosContainer.setVisible(false); }, this); // clockIcon launches Example3
+        boingIcon.on('pointerup', () => { this.createWindow(Boing); demosContainer.setVisible(false); }, this); // boingIcon launches Boing
+        exampleIcon.on('pointerup', () => { this.createWindow(Example); demosContainer.setVisible(false); }, this); // exampleIcon launches Example
 
         // Bring demos window to top initially if it were visible
         // this.children.bringToTop(demosContainer);
