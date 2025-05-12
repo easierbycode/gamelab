@@ -16,7 +16,7 @@ class Example3 extends Phaser.Scene {
     preload() {
         // Assets should ideally be loaded globally by LoadScene or EditorScene
         // Keeping them here for demonstration, but remove if loaded elsewhere.
-        this.load.image('logo', `https://play.rosebud.ai/assets/logo.png?sVKv`); // Redundant if loaded elsewhere
+        this.load.image('logo', `https://play.rosebud.ai/assets/logo.png?j9ze`); // Redundant if loaded elsewhere
         this.load.image('particle', 'https://play.rosebud.ai/assets/particle.png?Wslm');
         this.load.spritesheet('clownCar', `https://play.rosebud.ai/assets/clown-car.png?JB1F`, { frameWidth: 64, frameHeight: 92 });
         // Load a window background if desired

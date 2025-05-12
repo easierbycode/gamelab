@@ -10,6 +10,8 @@ import BossViewerScene from './bosses.js'; // Import the new Boss Viewer Scene
 import Example from './specs/Example.js'; // Import Example scene
 import Example2 from './specs/Example2.js'; // Import Example2 scene
 import Example3 from './specs/Example3.js'; // Import Example3 scene
+// import { GameScene } from 'https://codepen.io/CodeMonkeyGames/pen/ZYYxRGY.js'; // Import MyScene
+import GameScene from './specs/Example4.js'; // Import MyScene
 
 
 class EditorScene extends Phaser.Scene {
@@ -198,7 +200,7 @@ class EditorScene extends Phaser.Scene {
         starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // starsIcon launches LevelEditorScene
         invadersIcon.on('pointerup', () => { this.createWindow(Invaders); demosContainer.setVisible(false); }, this); // invadersIcon launches Invaders
         clockIcon.on('pointerup', () => { this.createWindow(Example3); demosContainer.setVisible(false); }, this); // clockIcon launches Example3
-        boingIcon.on('pointerup', () => { this.createWindow(Boing); demosContainer.setVisible(false); }, this); // boingIcon launches Boing
+        boingIcon.on('pointerup', () => { this.createWindow(GameScene); demosContainer.setVisible(false); }, this); // boingIcon launches MyScene
         exampleIcon.on('pointerup', () => { this.createWindow(Example); demosContainer.setVisible(false); }, this); // exampleIcon launches Example
 
         // Bring demos window to top initially if it were visible

@@ -1,13 +1,6 @@
 // Removed CONSTANTS and PROPERTIES imports as they might not be needed or should be managed globally.
 // Removed LoadScene import.
-import {
-  Boss,
-  FlirtyGirl,
-  FlirtyRevenge,
-  MonkeyBrain,
-  Pyramid,
-  Trump,
-} from "https://codepen.io/CodeMonkeyGames/pen/MWRrLqy.js"; // Keep boss logic imports
+// Removed unused import causing CORS error: import { Boss, FlirtyGirl, ... } from "https://codepen.io/CodeMonkeyGames/pen/MWRrLqy.js";
 
 class BossViewerScene extends Phaser.Scene {
   // --- Window Properties ---

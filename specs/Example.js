@@ -25,17 +25,17 @@ class Example extends Phaser.Scene {
         // Assets should ideally be loaded globally by LoadScene or EditorScene
         // Keeping them here for now to ensure the scene runs standalone if needed,
         // but they might be redundant if EditorScene already loads them.
-        this.load.image('sky', 'https://play.rosebud.ai/assets/sky.png?6GKQ'); // Not used currently
+        // this.load.image('sky', 'https://play.rosebud.ai/assets/sky.png?6GKQ'); // Not used currently
         // this.load.image('logo', 'https://play.rosebud.ai/assets/logo.png?sVKv'); // Not used currently
-        this.load.image('red', 'https://play.rosebud.ai/assets/red.png?cpk3'); // Not used currently
-        this.load.image('font', 'https://play.rosebud.ai/assets/font.png?KXdX');
-        this.load.spritesheet('ship', 'https://play.rosebud.ai/assets/ship-boy.png?Bv56', { frameWidth: 29, frameHeight: 35 });
-        this.load.spritesheet('ai', 'https://play.rosebud.ai/assets/ai-bg.png?DQLM', { frameWidth: 360, frameHeight: 480 });
-        this.load.spritesheet('ai-red', 'https://play.rosebud.ai/assets/ai-bg.png?IIpx', { frameWidth: 360, frameHeight: 480 });
-        this.load.spritesheet('rock-head', 'https://play.rosebud.ai/assets/rock-head-0.png?2MMr', { frameWidth: 16, frameHeight: 16 }); // Not used currently
+        // this.load.image('red', 'https://play.rosebud.ai/assets/red.png?cpk3'); // Not used currently
+        // this.load.image('font', 'https://play.rosebud.ai/assets/font.png?KXdX');
+        // this.load.spritesheet('ship', 'https://play.rosebud.ai/assets/ship-boy.png?Bv56', { frameWidth: 29, frameHeight: 35 });
+        // this.load.spritesheet('ai', 'https://play.rosebud.ai/assets/ai-bg.png?DQLM', { frameWidth: 360, frameHeight: 480 });
+        // this.load.spritesheet('ai-red', 'https://play.rosebud.ai/assets/ai-bg.png?IIpx', { frameWidth: 360, frameHeight: 480 });
+        // this.load.spritesheet('rock-head', 'https://play.rosebud.ai/assets/rock-head-0.png?2MMr', { frameWidth: 16, frameHeight: 16 }); // Not used currently
         this.load.image('button', 'https://play.rosebud.ai/assets/button.png');
-        this.load.spritesheet('trump', 'https://play.rosebud.ai/assets/trump-eyes.png?QhOE', { frameWidth: 26, frameHeight: 26 });
-        this.load.spritesheet('evogi', 'https://play.rosebud.ai/assets/evogi-face.png?4Ilr', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
+        // this.load.spritesheet('trump', 'https://play.rosebud.ai/assets/trump-eyes.png?QhOE', { frameWidth: 26, frameHeight: 26 });
+        // this.load.spritesheet('evogi', 'https://play.rosebud.ai/assets/evogi-face.png?4Ilr', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
         // Dynamically choose base URL
         const host = window.location.hostname;
         if (host === 'localhost' || host === '127.0.0.1') {
@@ -43,6 +43,12 @@ class Example extends Phaser.Scene {
         } else {
             this.load.setBaseURL('https://easierbycode.github.io/gamelab/public'); // Production/GitHub Pages
         }
+        this.load.image('font', 'assets/font.png');
+        this.load.spritesheet('ai', 'assets/ai-bg.png', { frameWidth: 360, frameHeight: 480 });
+        this.load.spritesheet('ai-red', 'assets/ai-bg-red.png', { frameWidth: 360, frameHeight: 480 });
+        this.load.spritesheet('evogi', 'assets/evogi-face.png', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
+        this.load.spritesheet('ship', 'assets/ship-boy.png', { frameWidth: 29, frameHeight: 35 });
+        this.load.spritesheet('trump', 'assets/trump-eyes.png', { frameWidth: 26, frameHeight: 26 });
         // Load the video - ensure browser policies allow autoplay if needed
         this.load.video('evogi-outro', 'assets/phaser3/evogi-face-outro.mp4', 'loadeddata', false, true); // Key, URL, loadEvent, asBlob, noAudio
     }
