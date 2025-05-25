@@ -50,6 +50,12 @@ class EditorScene extends Phaser.Scene {
         this.load.image('exampleIcon', 'assets/phaser3/story-viewer.png'); // Add an icon for Example scene
         // this.load.image('twistIcon', 'assets/phaser3/twist-icon.png'); // Twist demo file not provided
 
+        // Icons for Sprite Tools
+        this.load.image('spriteToolsFolderIcon', 'assets/phaser3/sprite-tools-folder-icon.png');
+        this.load.image('spritesheetExtractorIcon', 'assets/phaser3/spritesheet-extractor-icon.png');
+        this.load.image('atlasPackerIcon', 'assets/phaser3/atlas-packer-icon.png');
+        this.load.image('animationEditorIcon', 'assets/phaser3/animation-editor-icon.png');
+
         // Window background frames
         this.load.image('starsWindow', 'assets/phaser3/stars-window.png');
         // this.load.image('sineWindow', 'assets/phaser3/sinewave-window.png'); // Sine demo file not provided
@@ -150,9 +156,9 @@ class EditorScene extends Phaser.Scene {
 
         // --- Demos Window Setup ---
         const disk = this.add.image(16, 64, 'disk').setOrigin(0).setInteractive({ useHandCursor: true });
-        const demosWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0);
+        const demosWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0); // Reused for Sprite Tools window background
 
-        // Create icons
+        // Create icons for Demos Window
         const eyesIcon = this.add.image(32, 34, 'eyesIcon', 0).setOrigin(0).setInteractive({ useHandCursor: true }); // Player Editor?
         const jugglerIcon = this.add.image(48, 110, 'jugglerIcon', 0).setOrigin(0).setInteractive({ useHandCursor: true }); // BOSS VIEWER LAUNCHER
         const starsIcon = this.add.image(230, 40, 'starsIcon', 0).setOrigin(0).setInteractive({ useHandCursor: true }); // Level Editor
@@ -161,15 +167,15 @@ class EditorScene extends Phaser.Scene {
         const boingIcon = this.add.image(146, 128, 'boingIcon', 0).setOrigin(0).setInteractive({ useHandCursor: true });
         const exampleIcon = this.add.image(190, 120, 'exampleIcon', 0).setOrigin(0).setInteractive({ useHandCursor: true }).setScale(0.5); // Added example icon
 
-        // Assemble container
+        // Assemble Demos container
         const demosContainer = this.add.container(32, 70, [ demosWindow, eyesIcon, jugglerIcon, starsIcon, invadersIcon, clockIcon, boingIcon, exampleIcon ]);
         demosContainer.setVisible(false);
 
-        // Add close button zone to the container
+        // Add close button zone to the Demos container
         const demosCloseButton = this.add.zone(0, 0, 28, 20).setInteractive({ useHandCursor: true }).setOrigin(0);
         demosContainer.add(demosCloseButton);
 
-        // Make the container draggable using the background image area
+        // Make the Demos container draggable using the background image area
         demosContainer.setInteractive(new Phaser.Geom.Rectangle(0, 0, demosWindow.width, demosWindow.height), Phaser.Geom.Rectangle.Contains);
         this.input.setDraggable(demosContainer);
 
@@ -177,7 +183,6 @@ class EditorScene extends Phaser.Scene {
              this.children.bringToTop(demosContainer);
         });
         demosContainer.on('drag', function (pointer, dragX, dragY) {
-            // Prevent dragging outside game bounds (optional)
             const maxX = this.scene.sys.game.config.width - this.width;
             const maxY = this.scene.sys.game.config.height - this.height;
             this.x = Phaser.Math.Clamp(dragX, 0, maxX);
@@ -190,11 +195,51 @@ class EditorScene extends Phaser.Scene {
 
         disk.on('pointerup', () => {
             demosContainer.setVisible(true);
-            // Bring demos window to top when opened
             this.children.bringToTop(demosContainer);
         });
 
-        // --- Icon Click Handlers ---
+        // --- Sprite Tools Setup ---
+        const spriteToolsFolderIcon = this.add.image(56, 64, 'spriteToolsFolderIcon').setOrigin(0).setInteractive({ useHandCursor: true });
+
+        // Sprite Tools Window (Container)
+        const spriteToolsWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0); // Reuse 'demosWindow' background
+        const spritesheetExtractorIcon = this.add.image(30, 30, 'spritesheetExtractorIcon').setOrigin(0).setInteractive({ useHandCursor: true });
+        const atlasPackerIcon = this.add.image(100, 30, 'atlasPackerIcon').setOrigin(0).setInteractive({ useHandCursor: true });
+        const animationEditorIcon = this.add.image(170, 30, 'animationEditorIcon').setOrigin(0).setInteractive({ useHandCursor: true });
+
+        const spriteToolsContainer = this.add.container(60, 110, [spriteToolsWindow, spritesheetExtractorIcon, atlasPackerIcon, animationEditorIcon]);
+        spriteToolsContainer.setVisible(false);
+
+        // Add close button to Sprite Tools container
+        const spriteToolsCloseButton = this.add.zone(0, 0, 28, 20).setInteractive({ useHandCursor: true }).setOrigin(0);
+        spriteToolsContainer.add(spriteToolsCloseButton);
+
+        // Make Sprite Tools container draggable
+        spriteToolsContainer.setInteractive(new Phaser.Geom.Rectangle(0, 0, spriteToolsWindow.width, spriteToolsWindow.height), Phaser.Geom.Rectangle.Contains);
+        this.input.setDraggable(spriteToolsContainer);
+
+        spriteToolsContainer.on('dragstart', () => {
+            this.children.bringToTop(spriteToolsContainer);
+        });
+        spriteToolsContainer.on('drag', function (pointer, dragX, dragY) {
+            const maxX = this.scene.sys.game.config.width - this.width;
+            const maxY = this.scene.sys.game.config.height - this.height;
+            this.x = Phaser.Math.Clamp(dragX, 0, maxX);
+            this.y = Phaser.Math.Clamp(dragY, 0, maxY);
+        });
+
+        spriteToolsCloseButton.on('pointerup', () => {
+            spriteToolsContainer.setVisible(false);
+        });
+
+        spriteToolsFolderIcon.on('pointerup', () => {
+            spriteToolsContainer.setVisible(!spriteToolsContainer.visible);
+            if (spriteToolsContainer.visible) {
+                this.children.bringToTop(spriteToolsContainer);
+            }
+        });
+
+        // --- Icon Click Handlers (Demos) ---
         eyesIcon.on('pointerup', () => { this.createWindow(Example2); demosContainer.setVisible(false); }, this); // eyesIcon launches Example2
         jugglerIcon.on('pointerup', () => { this.createWindow(BossViewerScene); demosContainer.setVisible(false); }, this); // jugglerIcon launches BossViewer
         starsIcon.on('pointerup', () => { this.createWindow(LevelEditorScene); demosContainer.setVisible(false); }, this); // starsIcon launches LevelEditorScene
@@ -202,6 +247,20 @@ class EditorScene extends Phaser.Scene {
         clockIcon.on('pointerup', () => { this.createWindow(Example3); demosContainer.setVisible(false); }, this); // clockIcon launches Example3
         boingIcon.on('pointerup', () => { this.createWindow(GameScene); demosContainer.setVisible(false); }, this); // boingIcon launches MyScene
         exampleIcon.on('pointerup', () => { this.createWindow(Example); demosContainer.setVisible(false); }, this); // exampleIcon launches Example
+
+        // --- Icon Click Handlers (Sprite Tools) ---
+        spritesheetExtractorIcon.on('pointerup', () => {
+            console.log('SpriteSheet Extractor icon clicked');
+            spriteToolsContainer.setVisible(false);
+        });
+        atlasPackerIcon.on('pointerup', () => {
+            console.log('Atlas Packer icon clicked');
+            spriteToolsContainer.setVisible(false);
+        });
+        animationEditorIcon.on('pointerup', () => {
+            console.log('Animation Editor icon clicked');
+            spriteToolsContainer.setVisible(false);
+        });
 
         // Bring demos window to top initially if it were visible
         // this.children.bringToTop(demosContainer);
