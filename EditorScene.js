@@ -153,6 +153,24 @@ class EditorScene extends Phaser.Scene {
         this.workbenchTitle = this.add.image(16, 21, 'workbenchTitle').setOrigin(0);
         this.workbenchIcons = this.add.image(this.sys.game.config.width - 87, 21, 'workbenchIcons').setOrigin(0);
 
+        // --- Fullscreen Toggle Button ---
+        this.fullscreenButton = this.add.text(
+            this.sys.game.config.width - 24, 4,
+            '⛶',
+            { fontSize: '16px', color: '#ffffff', backgroundColor: '#333333', padding: { x: 4, y: 2 } }
+        ).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }).setDepth(1000);
+
+        this.fullscreenButton.on('pointerup', () => {
+            this.toggleFullscreen();
+        });
+
+        // Keyboard shortcut: F key toggles fullscreen
+        this.input.keyboard.on('keydown-F', (event) => {
+            if (!event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+                this.toggleFullscreen();
+            }
+        });
+
         // --- Demos Window Setup ---
         const disk = this.add.image(16, 64, 'disk').setOrigin(0).setInteractive({ useHandCursor: true });
         const demosWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0); // Reused for Sprite Tools window background
@@ -489,6 +507,14 @@ class EditorScene extends Phaser.Scene {
     }
 
 
+    toggleFullscreen() {
+        if (this.scale.isFullscreen) {
+            this.scale.stopFullscreen();
+        } else {
+            this.scale.startFullscreen();
+        }
+    }
+
     resize (width, height)
     {
         if (width === undefined) { width = this.sys.game.config.width; }
@@ -502,6 +528,10 @@ class EditorScene extends Phaser.Scene {
         this.workbench.fillRect(0, 0, width - 105, 20);
 
         this.workbenchIcons.x = (width - 87);
+
+        if (this.fullscreenButton) {
+            this.fullscreenButton.x = width - 24;
+        }
 
         // Handle resizing of fullscreen windows
         this.children.each(child => {
