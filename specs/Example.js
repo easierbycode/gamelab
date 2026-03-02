@@ -33,7 +33,7 @@ class Example extends Phaser.Scene {
         // this.load.spritesheet('ai', 'https://play.rosebud.ai/assets/ai-bg.png?DQLM', { frameWidth: 360, frameHeight: 480 });
         // this.load.spritesheet('ai-red', 'https://play.rosebud.ai/assets/ai-bg.png?IIpx', { frameWidth: 360, frameHeight: 480 });
         // this.load.spritesheet('rock-head', 'https://play.rosebud.ai/assets/rock-head-0.png?2MMr', { frameWidth: 16, frameHeight: 16 }); // Not used currently
-        this.load.image('button', 'https://play.rosebud.ai/assets/button.png');
+        this.load.image('button', 'https://assets.codepen.io/11817390/button-small-idle.png');
         // this.load.spritesheet('trump', 'https://play.rosebud.ai/assets/trump-eyes.png?QhOE', { frameWidth: 26, frameHeight: 26 });
         // this.load.spritesheet('evogi', 'https://play.rosebud.ai/assets/evogi-face.png?4Ilr', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
         // Dynamically choose base URL
@@ -41,7 +41,7 @@ class Example extends Phaser.Scene {
         if (host === 'localhost' || host === '127.0.0.1') {
             this.load.setBaseURL('public/'); // Local development
         } else {
-            this.load.setBaseURL('https://easierbycode.com/gamelab/public'); // Production/GitHub Pages
+            this.load.setBaseURL('https://easierbycode.com/gamelab/public/'); // Production/GitHub Pages
         }
         this.load.image('font', 'assets/font.png');
         this.load.spritesheet('ai', 'assets/ai-bg.png', { frameWidth: 360, frameHeight: 480 });

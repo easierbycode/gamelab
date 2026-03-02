@@ -4,8 +4,8 @@ import EditorScene from './EditorScene.js';
 
 const config = {
     type: Phaser.AUTO,
-    width: 800, // Main game canvas width
-    height: 600, // Main game canvas height
+    width: window.innerWidth, // Main game canvas width
+    height: window.innerHeight, // Main game canvas height
     parent: 'game-container',
     physics: {
         default: 'arcade',
@@ -16,7 +16,7 @@ const config = {
     },
     scene: [LoadScene, EditorScene],
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
     input: {
@@ -25,3 +25,7 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+
+window.addEventListener('resize', () => {
+    game.scale.resize(window.innerWidth, window.innerHeight);
+});

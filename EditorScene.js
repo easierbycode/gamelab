@@ -30,7 +30,7 @@ class EditorScene extends Phaser.Scene {
         if (host === 'localhost' || host === '127.0.0.1') {
             this.load.setBaseURL('public/'); // Local development
         } else {
-            this.load.setBaseURL('https://easierbycode.com/gamelab/public'); // Production/GitHub Pages
+            this.load.setBaseURL('https://easierbycode.com/gamelab/public/'); // Production/GitHub Pages
         }
 
         // --- Load Assets for Editor UI and Original Demos ---
@@ -77,12 +77,6 @@ class EditorScene extends Phaser.Scene {
         // However, the 'game_asset' atlas seems common. Load it here? Or ensure LoadScene does?
         // Let's assume LevelEditorScene handles its Firebase load. BossViewer needs game.json and potentially game_asset.
         // Loading game_asset here for BossViewer.
-        // Assuming 'game_asset' comes from the evil-invaders structure based on LevelEditorScene
-        // this.load.atlas('game_asset', 'assets/games/evil-invaders/spritesheet.png', 'assets/games/evil-invaders/spritesheet.json'); // Adjust path/filename as needed
-
-        // Load game.json for BossViewerScene
-        // this.load.json('game.json', 'assets/games/evil-invaders/game.json'); // Adjust path/filename as needed
-
         // Original Invaders assets (might be redundant if using game_asset atlas)
         this.load.image('invaders.boom', 'assets/games/multi/boom.png');
         this.load.spritesheet('invaders.bullet', 'assets/games/multi/bullet.png', { frameWidth: 12, frameHeight: 14 });
@@ -101,6 +95,10 @@ class EditorScene extends Phaser.Scene {
          this.load.spritesheet('ai', 'assets/ai-bg.png', { frameWidth: 360, frameHeight: 480 });
          this.load.spritesheet('ai-red', 'assets/ai-bg-red.png', { frameWidth: 360, frameHeight: 480 });
          this.load.image('font', 'assets/font.png');
+
+        // Load common game assets if available locally, otherwise these might need to be loaded from Firebase or Codepen
+        this.load.atlas('game_asset', 'https://assets.codepen.io/11817390/evil_invaders_asset.png', 'https://assets.codepen.io/11817390/evil_invaders_asset.json');
+        this.load.json('game.json', 'https://assets.codepen.io/11817390/evil_invaders.json');
     }
 
     create() {
