@@ -4,8 +4,8 @@ import EditorScene from './EditorScene.js';
 
 const config = {
     type: Phaser.AUTO,
-    width: 800, // Main game canvas width
-    height: 600, // Main game canvas height
+    width: window.innerWidth,
+    height: window.innerHeight,
     parent: 'game-container',
     physics: {
         default: 'arcade',
@@ -16,9 +16,8 @@ const config = {
     },
     scene: [LoadScene, EditorScene],
     scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        fullscreenTarget: 'game-container'
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     input: {
         gamepad: true // Enable gamepad input globally

@@ -149,13 +149,13 @@ class EditorScene extends Phaser.Scene {
         // Setup workbench UI
         this.workbench = this.add.graphics({ x: 16, y: 21 });
         this.workbench.fillStyle(0xffffff);
-        this.workbench.fillRect(0, 0, this.sys.game.config.width - 105, 20);
+        this.workbench.fillRect(0, 0, this.cameras.main.width - 105, 20);
         this.workbenchTitle = this.add.image(16, 21, 'workbenchTitle').setOrigin(0);
-        this.workbenchIcons = this.add.image(this.sys.game.config.width - 87, 21, 'workbenchIcons').setOrigin(0);
+        this.workbenchIcons = this.add.image(this.cameras.main.width - 87, 21, 'workbenchIcons').setOrigin(0);
 
         // --- Fullscreen Toggle Button ---
         this.fullscreenButton = this.add.text(
-            this.sys.game.config.width - 24, 4,
+            this.cameras.main.width - 24, 4,
             '⛶',
             { fontSize: '16px', color: '#ffffff', backgroundColor: '#333333', padding: { x: 4, y: 2 } }
         ).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }).setDepth(1000);
@@ -309,12 +309,12 @@ class EditorScene extends Phaser.Scene {
         // Position windows more centrally initially, avoiding overlap
         const offsetX = (this.count % 5) * 30; // Cascade slightly
         const offsetY = (this.count % 5) * 30;
-        const startX = Phaser.Math.Clamp(100 + offsetX, 50, this.sys.game.config.width - windowWidth - 50);
-        const startY = Phaser.Math.Clamp(80 + offsetY, 50, this.sys.game.config.height - windowHeight - 50);
+        const startX = Phaser.Math.Clamp(100 + offsetX, 50, this.cameras.main.width - windowWidth - 50);
+        const startY = Phaser.Math.Clamp(80 + offsetY, 50, this.cameras.main.height - windowHeight - 50);
 
         const handle = 'window' + this.count++;
-        const gameWidth = this.sys.game.config.width;
-        const gameHeight = this.sys.game.config.height;
+        const gameWidth = this.cameras.main.width;
+        const gameHeight = this.cameras.main.height;
 
         // Create a Container to hold all window elements (zone, handle, button, scene content)
         const windowContainer = this.add.container(startX, startY);
@@ -508,17 +508,18 @@ class EditorScene extends Phaser.Scene {
 
 
     toggleFullscreen() {
-        if (this.scale.isFullscreen) {
-            this.scale.stopFullscreen();
+        const container = this.sys.game.canvas.parentElement;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
         } else {
-            this.scale.startFullscreen();
+            container.requestFullscreen();
         }
     }
 
     resize (width, height)
     {
-        if (width === undefined) { width = this.sys.game.config.width; }
-        if (height === undefined) { height = this.sys.game.config.height; }
+        if (width === undefined) { width = this.cameras.main.width; }
+        if (height === undefined) { height = this.cameras.main.height; }
 
         // Phaser 4 cameras typically adjust automatically, but UI elements need manual update.
         // this.cameras.resize(width, height); // Usually not needed
