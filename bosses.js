@@ -1,6 +1,6 @@
 // Removed CONSTANTS and PROPERTIES imports as they might not be needed or should be managed globally.
 // Removed LoadScene import.
-// Removed unused import causing CORS error: import { Boss, FlirtyGirl, ... } from "https://codepen.io/CodeMonkeyGames/pen/MWRrLqy.js";
+// Removed unused import causing CORS error: import { Boss, FlirtyGirl, ... } from "https://easierbycode.com/games/evil-invaders/objects-and-scenes.js";
 
 class BossViewerScene extends Phaser.Scene {
   // --- Window Properties ---

@@ -10,7 +10,6 @@ import BossViewerScene from './bosses.js'; // Import the new Boss Viewer Scene
 import Example from './specs/Example.js'; // Import Example scene
 import Example2 from './specs/Example2.js'; // Import Example2 scene
 import Example3 from './specs/Example3.js'; // Import Example3 scene
-// import { GameScene } from 'https://codepen.io/CodeMonkeyGames/pen/ZYYxRGY.js'; // Import MyScene
 import GameScene from './specs/Example4.js'; // Import MyScene
 
 
