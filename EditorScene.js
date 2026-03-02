@@ -28,9 +28,9 @@ class EditorScene extends Phaser.Scene {
         // Dynamically choose base URL
         const host = window.location.hostname;
         if (host === 'localhost' || host === '127.0.0.1') {
-            this.load.setBaseURL(''); // Local development
+            this.load.setBaseURL('public/'); // Local development
         } else {
-            this.load.setBaseURL('https://easierbycode.github.io/gamelab/public'); // Production/GitHub Pages
+            this.load.setBaseURL('https://easierbycode.com/gamelab/public'); // Production/GitHub Pages
         }
 
         // --- Load Assets for Editor UI and Original Demos ---
@@ -78,10 +78,10 @@ class EditorScene extends Phaser.Scene {
         // Let's assume LevelEditorScene handles its Firebase load. BossViewer needs game.json and potentially game_asset.
         // Loading game_asset here for BossViewer.
         // Assuming 'game_asset' comes from the evil-invaders structure based on LevelEditorScene
-        this.load.atlas('game_asset', 'assets/games/evil-invaders/spritesheet.png', 'assets/games/evil-invaders/spritesheet.json'); // Adjust path/filename as needed
+        // this.load.atlas('game_asset', 'assets/games/evil-invaders/spritesheet.png', 'assets/games/evil-invaders/spritesheet.json'); // Adjust path/filename as needed
 
         // Load game.json for BossViewerScene
-        this.load.json('game.json', 'assets/games/evil-invaders/game.json'); // Adjust path/filename as needed
+        // this.load.json('game.json', 'assets/games/evil-invaders/game.json'); // Adjust path/filename as needed
 
         // Original Invaders assets (might be redundant if using game_asset atlas)
         this.load.image('invaders.boom', 'assets/games/multi/boom.png');
@@ -95,12 +95,12 @@ class EditorScene extends Phaser.Scene {
         this.load.image('invaders.ship', 'assets/games/multi/ship.png');
 
          // Assets for Example scene (already loaded in Example.js preload, but ensure they are available)
-         this.load.image('button', 'https://play.rosebud.ai/assets/button.png'); // Needed by Example.js
-         this.load.spritesheet('trump', 'https://play.rosebud.ai/assets/trump-eyes.png?QhOE', { frameWidth: 26, frameHeight: 26 }); // Needed by Example.js
-         this.load.spritesheet('evogi', 'https://play.rosebud.ai/assets/evogi-face.png?4Ilr', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 }); // Needed by Example.js
-         this.load.spritesheet('ai', 'https://play.rosebud.ai/assets/ai-bg.png?DQLM', { frameWidth: 360, frameHeight: 480 }); // Needed by Example.js
-         this.load.spritesheet('ai-red', 'https://play.rosebud.ai/assets/ai-bg.png?IIpx', { frameWidth: 360, frameHeight: 480 }); // Needed by Example.js
-         this.load.image('font', 'https://play.rosebud.ai/assets/font.png?KXdX'); // Needed by Example.js
+         this.load.image('button', 'https://assets.codepen.io/11817390/button-small-idle.png'); // Use alternative for button
+         this.load.spritesheet('trump', 'assets/trump-eyes.png', { frameWidth: 26, frameHeight: 26 });
+         this.load.spritesheet('evogi', 'assets/evogi-face.png', { frameWidth: 180, frameHeight: 240, startFrame: 0, endFrame: 18 });
+         this.load.spritesheet('ai', 'assets/ai-bg.png', { frameWidth: 360, frameHeight: 480 });
+         this.load.spritesheet('ai-red', 'assets/ai-bg-red.png', { frameWidth: 360, frameHeight: 480 });
+         this.load.image('font', 'assets/font.png');
     }
 
     create() {

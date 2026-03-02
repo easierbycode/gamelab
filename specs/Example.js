@@ -39,7 +39,7 @@ class Example extends Phaser.Scene {
         // Dynamically choose base URL
         const host = window.location.hostname;
         if (host === 'localhost' || host === '127.0.0.1') {
-            this.load.setBaseURL(''); // Local development
+            this.load.setBaseURL('public/'); // Local development
         } else {
             this.load.setBaseURL('https://easierbycode.com/gamelab/public'); // Production/GitHub Pages
         }
