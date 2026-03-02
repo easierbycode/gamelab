@@ -1,4 +1,4 @@
-import { LoadScene } from "https://codepen.io/CodeMonkeyGames/pen/LYKayQE.js";
+import { LoadScene } from "https://easierbycode.com/games/evil-invaders/load-scene.js";
 import EditorScene from './EditorScene.js';
 // LevelEditorScene is no longer preloaded here, it's launched by EditorScene
 

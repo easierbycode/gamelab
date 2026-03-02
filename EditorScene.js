@@ -51,10 +51,10 @@ class EditorScene extends Phaser.Scene {
         // this.load.image('twistIcon', 'assets/phaser3/twist-icon.png'); // Twist demo file not provided
 
         // Icons for Sprite Tools
-        this.load.image('spriteToolsFolderIcon', 'assets/phaser3/sprite-tools-folder-icon.png');
-        this.load.image('spritesheetExtractorIcon', 'assets/phaser3/spritesheet-extractor-icon.png');
-        this.load.image('atlasPackerIcon', 'assets/phaser3/atlas-packer-icon.png');
-        this.load.image('animationEditorIcon', 'assets/phaser3/animation-editor-icon.png');
+        this.load.image('spriteToolsFolderIcon', 'assets/phaser3/disk.png');
+        this.load.image('spritesheetExtractorIcon', 'assets/phaser3/disk.png');
+        this.load.image('atlasPackerIcon', 'assets/phaser3/disk.png');
+        this.load.image('animationEditorIcon', 'assets/phaser3/disk.png');
 
         // Window background frames
         this.load.image('starsWindow', 'assets/phaser3/stars-window.png');
@@ -199,7 +199,7 @@ class EditorScene extends Phaser.Scene {
         });
 
         // --- Sprite Tools Setup ---
-        const spriteToolsFolderIcon = this.add.image(56, 64, 'spriteToolsFolderIcon').setOrigin(0).setInteractive({ useHandCursor: true });
+        const spriteToolsFolderIcon = this.add.image(156, 64, 'spriteToolsFolderIcon').setOrigin(0).setInteractive({ useHandCursor: true });
 
         // Sprite Tools Window (Container)
         const spriteToolsWindow = this.add.image(0, 0, 'demosWindow').setOrigin(0); // Reuse 'demosWindow' background
