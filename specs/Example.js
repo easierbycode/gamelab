@@ -41,7 +41,7 @@ class Example extends Phaser.Scene {
         if (host === 'localhost' || host === '127.0.0.1') {
             this.load.setBaseURL(''); // Local development
         } else {
-            this.load.setBaseURL('https://easierbycode.github.io/gamelab/public'); // Production/GitHub Pages
+            this.load.setBaseURL('https://easierbycode.com/gamelab/public'); // Production/GitHub Pages
         }
         this.load.image('font', 'assets/font.png');
         this.load.spritesheet('ai', 'assets/ai-bg.png', { frameWidth: 360, frameHeight: 480 });
