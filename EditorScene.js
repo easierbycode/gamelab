@@ -508,10 +508,11 @@ class EditorScene extends Phaser.Scene {
 
 
     toggleFullscreen() {
-        if (this.scale.isFullscreen) {
-            this.scale.stopFullscreen();
+        const container = this.sys.game.canvas.parentElement;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
         } else {
-            this.scale.startFullscreen();
+            container.requestFullscreen();
         }
     }
 

@@ -17,8 +17,7 @@ const config = {
     scene: [LoadScene, EditorScene],
     scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        fullscreenTarget: 'game-container'
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     input: {
         gamepad: true // Enable gamepad input globally
